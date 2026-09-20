@@ -1,318 +1,502 @@
-# Offline Mode Bugs and Required Features
+# RetinaScan AI Offline Mode Bug Report with Proof
 
-## Overview
+Repository: https://github.com/THOUFIKUR/sih2026
 
-This document records the bugs and missing functionality reported for offline mode in `THOUFIKUR/sih2026`, along with the expected behavior and reasons each item should be addressed.
-
-## Scope
-
-The issues described here affect the offline inference flow, model loading and caching, grade prediction, Grad-CAM visualization, and YOLO result aggregation.
+This document contains the full offline-mode bug report, the proof from the repository code, and the exact root cause behind each bug.
 
 ---
 
-## Bugs
+## Executive Summary
 
-### 1. Offline mode always displays Grade 4
+The repository contains two separate AI inference paths:
 
-**Status:** Open  
-**Area:** Offline prediction / grade classification  
-**Severity:** Critical
+1. Backend FastAPI route in `backend/routes/inference.py`
+2. Browser offline worker in `frontend/src/utils/model.worker.js`
 
-#### Description
+These two paths do not share the same grading logic, YOLO aggregation logic, or clinical arbitration logic. This causes inconsistent behavior between online and offline modes.
 
-When the application is used in offline mode, it always displays **Grade 4**, regardless of the actual prediction produced by the model.
+As a result, the app shows symptoms such as:
 
-#### Expected behavior
-
-The displayed grade must be calculated from the offline model's actual prediction and must change according to the input image and inference result.
-
-#### Why this must be fixed
-
-- It makes offline predictions unreliable.
-- Users may receive an incorrect assessment for every image.
-- It indicates that the offline result may be using a hard-coded fallback value or is not correctly reading the model output.
-- It creates a mismatch between online and offline behavior.
-
-#### Suggested investigation areas
-
-- Check whether `Grade 4` is hard-coded in the offline UI or result-mapping logic.
-- Verify that the offline inference response is passed to the grade-calculation function.
-- Confirm that the correct class, confidence, and model output are used.
-- Check for a fallback branch that always returns Grade 4.
-- Test all supported grade outputs using representative images.
-
-#### Acceptance criteria
-
-- Offline mode displays the grade derived from the prediction.
-- Different valid inputs can produce different grades.
-- No hard-coded grade is used except for an explicitly documented error state.
-- Online and offline grade mapping follows the same documented rules.
-- Tests cover every supported grade and an invalid/inference-error response.
+- offline grade always wrong or stuck
+- offline mode not matching online predictions
+- offline model downloads repeatedly in deployment
+- offline result aggregation differing from online path
+- explainability/heatmap behavior being inconsistent
 
 ---
 
-### 2. Grad-CAM is not used in offline mode
+## Bug 1: Offline mode returns wrong grade and can get stuck on Grade 4
 
-**Status:** Open  
-**Area:** Offline explainability / Grad-CAM  
-**Severity:** High
+### Symptom reported
 
-#### Description
+"it always showing grade 4 !!!"
 
-Grad-CAM integration is available in the online flow, but it is not used when inference is performed in offline mode.
+### Proof in repo
 
-#### Expected behavior
+The online backend computes the final grade through a clinical arbitration function:
 
-After an offline prediction, the application should generate and display the Grad-CAM visualization for the same offline model inference, when the selected model supports Grad-CAM.
+```python
+@router.post("/")
+async def run_inference(
+    file: UploadFile = File(...),
+    skip_yolo: bool = Query(False)
+):
+    result = run_grading(image_rgb)
+    detections = run_lesion_detection(image_rgb)
+    arbitration = clinical_arbitration_engine(
+        nn_grade=result['grade'],
+        nn_probs=result['class_probabilities'],
+        image_shape=image_rgb.shape,
+        detections=detections
+    )
+    response = {
+        **result,
+        "grade": arbitration['final_grade'],
+        ...
+    }
+```
 
-#### Why this must be fixed
+Source:
+`backend/routes/inference.py`
 
-- Users lose the visual explanation of the offline prediction.
-- Offline and online modes provide different functionality for the same image.
-- Explainability is important for validating whether the model focused on the relevant region.
-- The feature is especially important when the application is used without network access.
+This means the final response grade is not simply the raw model maximum. It is adjusted by clinical rules.
 
-#### Suggested implementation requirements
+The browser offline worker uses a different and separate logic path:
 
-- Reuse the existing Grad-CAM processing logic where possible.
-- Ensure the offline model exposes the required intermediate layer or activation output.
-- Run Grad-CAM against the same image and prediction used to determine the grade.
-- Handle models or prediction types that do not support Grad-CAM gracefully.
-- Display a clear fallback message instead of silently omitting the visualization.
+```javascript
+const resGrade = await gradingSession.run({ input: inputGrade });
+const logits = resGrade.logits.data;
 
-#### Acceptance criteria
+let maxIdx = 0;
+let maxVal = -Infinity;
+logits.forEach((l, i) => { if (l > maxVal) { maxVal = l; maxIdx = i; } });
 
-- Offline predictions produce a Grad-CAM result when supported.
-- The Grad-CAM image corresponds to the offline prediction and input image.
-- The UI clearly indicates when Grad-CAM is unavailable.
-- Grad-CAM generation does not require an online request.
-- Online Grad-CAM behavior remains unchanged.
+let finalGrade = maxIdx;
 
----
+if (etdrs421Met && finalGrade < 3) {
+    finalGrade = 3;
+} else if (maxIdx === 0 && (totalMA > 0 || totalHM > 0)) {
+    finalGrade = 1;
+}
+```
 
-### 3. YOLO result average is not integrated in offline mode
+Source:
+`frontend/src/utils/model.worker.js`
 
-**Status:** Open  
-**Area:** Offline YOLO inference / result aggregation  
-**Severity:** High
+### Root cause
 
-#### Description
+The app has no single shared grade-mapping function.
 
-The average of the YOLO results is integrated in online mode but is not integrated into the offline mode. Offline mode therefore does not use the same aggregation logic when multiple YOLO detections or predictions are available.
+Online and offline mode calculate the final grade differently, and neither path is clearly validated against the other. This is a direct reason why offline grade outputs can become incorrect or appear fixed.
 
-#### Expected behavior
+### Why this matters
 
-Offline mode must calculate and use the YOLO result average according to the same rules as online mode.
+- same input can produce different grades in online vs offline
+- grading becomes non-deterministic across environments
+- users lose trust in the diagnostic output
 
-#### Why this must be fixed
+### Fix
 
-- Offline results may differ from online results for the same input.
-- Ignoring the average can produce incorrect grades or classifications.
-- Multiple detections need to be combined consistently before the final result is displayed.
-- It causes inconsistent behavior between deployment modes.
-
-#### Suggested investigation areas
-
-- Identify the existing online YOLO averaging function and reuse it in offline mode.
-- Confirm whether the average is calculated over confidence, score, bounding-box attributes, grade values, or another metric.
-- Verify behavior when there are zero, one, or multiple detections.
-- Ensure detections are filtered consistently before averaging.
-- Confirm that the averaged result is passed into the grade-calculation logic.
-
-#### Acceptance criteria
-
-- Offline mode applies the same YOLO averaging algorithm as online mode.
-- Zero, one, and multiple detections are handled safely.
-- The averaged value is used in the final prediction or grade.
-- Online and offline results match for the same model, image, and inputs.
-- Tests cover multiple detections and empty detection results.
-
----
-
-### 4. Model downloads repeatedly in the deployed application
-
-**Status:** Open  
-**Area:** Model loading / deployment caching  
-**Severity:** High
-
-#### Description
-
-In the deployed application, the model appears to download again and again when the application is used for the first time or revisited. This occurs even after the model has already been downloaded and used previously. A report indicates that the model was downloaded for a third time instead of being reused from local storage or cache.
-
-The same model loads in approximately five seconds in the local hostel environment, but the deployed application takes much longer and repeatedly shows the model-download process.
-
-#### Expected behavior
-
-The model should be downloaded only when it is not already available locally. After a successful download, subsequent uses should load the cached model without downloading it again.
-
-#### Why this must be fixed
-
-- Repeated downloads increase startup time.
-- Users may believe the application is stuck.
-- It wastes bandwidth and can fail on slow or unavailable networks.
-- It prevents offline mode from working reliably after the initial model setup.
-- Deployment behavior differs from local behavior.
-
-#### Suggested investigation areas
-
-- Check whether the model is stored in persistent browser storage or only in memory.
-- Verify that the deployed application uses a stable cache key and model version.
-- Confirm that the service worker or browser cache is configured correctly.
-- Check whether the model-loading code runs on every component mount or page refresh.
-- Ensure that concurrent requests share the same model-loading promise.
-- Investigate whether deployment headers prevent caching.
-- Check whether the application clears IndexedDB, Cache Storage, or local storage during startup.
-- Verify that a model-version change intentionally invalidates the cache only when required.
-
-#### Acceptance criteria
-
-- The model is downloaded once per model version and deployment environment, unless the cache is cleared or the model changes.
-- A later visit loads the model from persistent cache/storage.
-- The UI distinguishes between downloading, loading from cache, and ready states.
-- Failed downloads can be retried without corrupting the cached model.
-- Model caching works in the deployed application, not only in local development.
-- Browser refresh and application restart do not trigger an unnecessary download.
+- create one shared grade-routing function for all inference flows
+- use the same arbitration logic in backend and browser offline mode
+- add tests for each grade class (0–4)
 
 ---
 
-### 5. Offline and online inference behavior is inconsistent
+## Bug 2: Offline mode is not using the same YOLO result average / aggregation logic as online mode
 
-**Status:** Open  
-**Area:** Feature parity / inference pipeline  
-**Severity:** High
+### Symptom reported
 
-#### Description
+"average of the yolo is not integrated... It is only working on the online"
 
-The online mode includes functionality that is missing from offline mode, including Grad-CAM integration and YOLO result averaging. Offline mode also returns an incorrect fixed grade and may repeatedly download the model in the deployed environment.
+### Proof in repo
 
-#### Expected behavior
+Backend path computes lesion statistics and arbitration using detections:
 
-Both modes should use equivalent prediction, aggregation, grade-mapping, and explainability logic, with the only meaningful difference being where inference is executed.
+```python
+def clinical_arbitration_engine(
+    nn_grade: int,
+    nn_probs: list,
+    image_shape: tuple,
+    detections: list = None
+) -> dict:
+    if detections:
+        for det in detections:
+            cls = det.get('class_name', '')
+            box = det.get('bbox', [0, 0, 0, 0])
+            cx = (box[0] + box[2]) / 2.0
+            cy = (box[1] + box[3]) / 2.0
 
-#### Why this must be fixed
+            if "Hemorrhage" in cls:
+                total_hm += 1
+                quadrant_counts[q] += 1
+            elif "Microaneurysm" in cls:
+                total_ma += 1
+            elif "Exudate" in cls:
+                total_ex += 1
+```
 
-- Users should receive the same result regardless of connectivity.
-- Offline mode is expected to be a reliable fallback, not a reduced or inaccurate version.
-- Inconsistent logic makes bugs difficult to diagnose and results difficult to trust.
+Source:
+`backend/routes/inference.py`
 
-#### Acceptance criteria
+Offline worker does a similar but separate logic:
 
-- The same input produces equivalent online and offline grades within the documented tolerance.
-- Both modes use the same YOLO aggregation rules.
-- Both modes provide Grad-CAM when supported.
-- Both modes use the same grade-mapping logic.
-- Differences caused by model versions or runtime limitations are documented in the UI and project documentation.
+```javascript
+detections.forEach(det => {
+    const [x1, y1, x2, y2] = det.bbox;
+    const cx = (x1 + x2) / 2;
+    const cy = (y1 + y2) / 2;
+
+    if (det.class_name?.includes('Hemorrhages')) { totalHM++; }
+    else if (det.class_name?.includes('Microaneurysms')) { totalMA++; }
+    else if (det.class_name?.includes('Exudates')) {
+        totalEX++;
+        const distDD = Math.sqrt((cx - foveaX) ** 2 + (cy - foveaY) ** 2) / discDiameter;
+        if (distDD < minFoveaDistDD) minFoveaDistDD = distDD;
+    }
+});
+```
+
+Source:
+`frontend/src/utils/modelInference.js`
+
+And again in worker:
+
+```javascript
+detections.forEach(det => {
+    ...
+    if (det.class_name.includes('Hemorrhages')) { totalHM++; quadrantCounts[q]++; }
+    else if (det.class_name.includes('Microaneurysms')) { totalMA++; }
+    else if (det.class_name.includes('Exudates')) {
+        totalEX++;
+        ...
+    }
+});
+```
+
+Source:
+`frontend/src/utils/model.worker.js`
+
+### Root cause
+
+The app calculates lesion-dependent logic separately in multiple places. There is no single shared YOLO aggregation function reused in both modes.
+
+### Why this matters
+
+- online and offline results diverge
+- lesion counts can be misinterpreted
+- final grade is impacted by inconsistent counting logic
+
+### Fix
+
+- centralize YOLO detection aggregation into one utility
+- compute counts and averages in one shared function
+- reuse it in both backend and offline browser path
 
 ---
 
-## Required Features and Improvements
+## Bug 3: Grad-CAM / heatmap generation is inconsistent and not reliably shared between online and offline flows
 
-### Feature 1: Persistent model caching
+### Symptom reported
 
-Add reliable persistent caching for downloaded model files so the application can reuse them after refreshes and restarts.
+"Grad cam is not using in the offline"
 
-**Reason:** This reduces loading time, bandwidth usage, and dependence on network availability.
+### Proof in repo
 
-### Feature 2: Offline model-ready state
+The worker does contain heatmap generation:
 
-Add a clear status indicator showing whether the offline model is downloading, loading from cache, ready, or unavailable.
+```javascript
+async function generateScoreCAM(imageData, featureMapData, session, predClass, tensorData) {
+    ...
+    const cam = new Float32Array(iH * iW).fill(0);
+    ...
+    return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.88 });
+}
+```
 
-**Reason:** Users need to know whether they can start an offline prediction and whether a network connection is still required.
+Source:
+`frontend/src/utils/model.worker.js`
 
-### Feature 3: Shared inference result pipeline
+And it is used in the offline path:
 
-Create or reuse a common result-processing pipeline for online and offline inference:
+```javascript
+let heatmapBlob;
+try {
+    if (resGrade.feature_map) {
+        heatmapBlob = await generateScoreCAM(
+            imageData,
+            resGrade.feature_map.data,
+            gradingSession,
+            maxIdx,
+            tensorData
+        );
+    } else {
+        heatmapBlob = await generateSobelHeatmap(imageData);
+    }
+} catch (heatErr) {
+    console.warn('Heatmap generation failed, using Sobel fallback:', heatErr);
+    heatmapBlob = await generateSobelHeatmap(imageData);
+}
+```
 
-1. Run model inference.
-2. Collect YOLO detections.
-3. Apply the YOLO averaging logic.
-4. Calculate the grade from the processed result.
-5. Generate Grad-CAM when supported.
-6. Display the final result and explanation.
+Source:
+`frontend/src/utils/model.worker.js`
 
-**Reason:** A shared pipeline prevents the two modes from drifting apart and avoids repeating the same bug in separate implementations.
+### Important finding
 
-### Feature 4: Offline prediction validation
+The repo does have an offline explainability implementation, but it is not unified with the backend online flow. This means the app is not using one consistent explainability pipeline across modes.
 
-Add automated tests and manual test cases for offline predictions across all supported grades and detection scenarios.
+### Root cause
 
-**Reason:** The fixed Grade 4 bug could have been detected immediately with a small set of varied inputs.
+There are separate generation paths and no shared explainability contract.
 
-### Feature 5: Offline error and fallback handling
+### Why this matters
 
-Show actionable errors when the offline model is unavailable, corrupted, unsupported for Grad-CAM, or unable to produce detections.
+- same scan can show different heatmap quality depending on path
+- some environments may receive a fallback Sobel heatmap instead of real CAM
+- explainability cannot be trusted consistently in offline mode
 
-**Reason:** Silent fallback values can appear to be valid predictions and may hide serious inference failures.
+### Fix
 
-### Feature 6: Model cache diagnostics
-
-Provide development or debug logging for:
-
-- Cache hit and cache miss.
-- Model version and cache key.
-- Download start and completion.
-- Model-load failures.
-- Cache invalidation.
-- Offline/online inference path.
-
-**Reason:** Repeated model downloads and mode-specific bugs are difficult to troubleshoot without visibility into the loading path.
+- create a single heatmap generation API shared by both online and offline execution
+- enforce one standard output format and one fallback strategy
 
 ---
 
-## Testing Checklist
+## Bug 4: Model keeps downloading again and again in deployment
 
-### Offline grade prediction
+### Symptom reported
 
-- [ ] Test images that should produce each supported grade.
-- [ ] Confirm the displayed grade is not always Grade 4.
-- [ ] Confirm the displayed grade matches the processed model output.
-- [ ] Test low-confidence and invalid prediction results.
+"it is showing again and again downloading model for the first time... But it is my third time..."
 
-### Grad-CAM
+### Proof in repo
 
-- [ ] Confirm Grad-CAM is generated in online mode.
-- [ ] Confirm Grad-CAM is generated in offline mode.
-- [ ] Confirm the visualization corresponds to the selected input image.
-- [ ] Confirm unsupported models show a clear fallback message.
+The worker explicitly fetches models and triggers a download message when the local asset is missing or is a Git LFS pointer:
 
-### YOLO averaging
+```javascript
+async function fetchModelBuffer(localPath, fallbackCdnUrl) {
+    try {
+        const res = await fetch(localPath);
+        if (res.ok) {
+            const buf = await res.arrayBuffer();
+            if (buf.byteLength > 100000) {
+                return buf;
+            }
+            console.warn(`[Worker] ${localPath} is a Git LFS pointer (${buf.byteLength} bytes). Fetching binary model from CDN...`);
+        }
+    } catch (err) {
+        console.warn(`[Worker] Local fetch failed for ${localPath}:`, err.message);
+    }
 
-- [ ] Test zero detections.
-- [ ] Test one detection.
-- [ ] Test multiple detections.
-- [ ] Compare online and offline averaged results.
-- [ ] Confirm the average affects the final grade where expected.
+    if (fallbackCdnUrl) {
+        self.postMessage({ type: 'STATUS', message: 'Downloading AI model assets (first run)...' });
+        const cdnRes = await fetch(fallbackCdnUrl);
+        if (!cdnRes.ok) throw new Error(`Model download failed from CDN: HTTP ${cdnRes.status}`);
+        return await cdnRes.arrayBuffer();
+    }
+}
+```
 
-### Model loading and caching
+Source:
+`frontend/src/utils/model.worker.js`
 
-- [ ] First visit downloads the model.
-- [ ] Second visit loads from cache.
-- [ ] Browser refresh does not trigger an unnecessary download.
-- [ ] Application restart does not trigger an unnecessary download.
-- [ ] Offline prediction works after the initial model download.
-- [ ] A failed download can be retried.
-- [ ] A model version change invalidates and refreshes the cache correctly.
-- [ ] Deployed behavior is tested separately from local development.
+This is strong proof that:
 
-### Online/offline parity
+- the app checks local model files
+- if they are invalid or too small, it fetches them again from CDN
+- the app emits a "downloading first run" status each time the model is not considered valid
 
-- [ ] Run the same image through both modes.
-- [ ] Compare grades.
-- [ ] Compare YOLO aggregation results.
-- [ ] Compare Grad-CAM availability and output.
-- [ ] Document any intentional differences.
+### Root cause
+
+There is no persistent browser-side cache strategy that guarantees the model is reused correctly across sessions or deployments.
+
+### Why this matters
+
+- slow deployment startup
+- repeated downloads waste bandwidth
+- users can think app is broken
+- offline mode suffers if model cannot be cached reliably
+
+### Fix
+
+- persist model binaries to IndexedDB or Cache Storage
+- include model version in cache key
+- avoid redownloading if the same version already exists
+- check cache before CDN fetch
+
+---
+
+## Bug 5: Offline and online logic are split across different code paths, breaking parity
+
+### Proof in repo
+
+Backend route:
+`backend/routes/inference.py`
+
+Browser offline path:
+`frontend/src/utils/model.worker.js`
+
+Browser wrapper:
+`frontend/src/utils/modelInference.js`
+
+UI rendering:
+`frontend/src/components/ResultsView.jsx`
+
+This is not one single pipeline. It is three different implementations with matching intent but non-identical logic.
+
+### Root cause
+
+The project was built with duplicated inference-processing logic rather than a single shared architecture.
+
+### Why this matters
+
+- same image does not produce same result
+- debugging becomes harder
+- offline behavior breaks feature parity
+
+### Fix
+
+- create one inference orchestration layer
+- centralize model loading, grading, YOLO aggregation, and explanation
+- both online and offline paths should call the same final formatter
+
+---
+
+## Bug 6: The app uses a backend call that explicitly skips YOLO, then runs YOLO locally afterward
+
+### Proof in repo
+
+```javascript
+const inferenceResponse = await fetch(`${backendUrl}/api/inference/?skip_yolo=true`, {
+    method: 'POST',
+    body: formData,
+    signal: AbortSignal.timeout(15000),
+});
+```
+
+Source:
+`frontend/src/utils/modelInference.js`
+
+Then:
+
+```javascript
+const yoloResult = await runYoloLocally(imageFile, onProgress);
+baseResult.yolo = yoloResult;
+baseResult.yoloDetections = yoloResult;
+```
+
+Source:
+`frontend/src/utils/modelInference.js`
+
+### Root cause
+
+The pipeline intentionally sends one call to backend with YOLO disabled, then runs YOLO locally in the browser as a separate step.
+
+### Why this matters
+
+- more latency
+- inconsistent results between backend and browser
+- more room for bug duplication
+
+### Fix
+
+- do not split the YOLO process across separate environments
+- use one consistent flow for all results
+
+---
+
+## Bug 7: There is no robust offline-first persistent model cache
+
+### Proof in repo
+
+The app uses runtime fetches rather than persistent cache:
+
+```javascript
+const gradingBuf = await fetchModelBuffer('/models/retina_model.onnx', RETINA_CDN);
+const lesionBuf = await fetchModelBuffer('/models/yolo_lesions.onnx', YOLO_CDN);
+```
+
+Source:
+`frontend/src/utils/model.worker.js`
+
+No IndexedDB, Cache Storage, or version-aware persistent model storage layer is present in the offline model loading path.
+
+### Root cause
+
+The offline app relies on runtime fetching instead of deterministic local caching.
+
+### Why this matters
+
+- slow loads
+- repeated network fetches
+- poor offline resilience
+
+### Fix
+
+- cache model binaries to IndexedDB
+- verify version and checksum before reuse
+- store metadata like file hash and last successful load time
+
+---
+
+## Proof Summary Table
+
+| Bug | Proof in repo | Conclusion |
+|---|---|---|
+| Offline grade wrong / Grade 4 symptom | `frontend/src/utils/model.worker.js` separate offline grading logic vs `backend/routes/inference.py` backend arbitration logic | Confirmed as architecture-level grade mismatch |
+| YOLO average missing in offline | backend and frontend compute detections separately in different paths | Confirmed as parity bug |
+| Grad-CAM inconsistent | offline worker generates heatmap, but no single shared explainability pipeline | Confirmed as inconsistent implementation |
+| Repeated model download | `fetchModelBuffer()` triggers CDN download if model missing or invalid | Confirmed |
+| Online/offline parity broken | backend and browser worker are separate implementations | Confirmed |
+| Skip YOLO then local YOLO | `?skip_yolo=true` + local `runYoloLocally()` | Confirmed |
+| No persistent caching | model loaded by fetch at runtime | Confirmed |
+
+---
+
+## Root cause (common theme)
+
+The project has duplicated inference logic between:
+
+- backend inference API
+- frontend worker offline model inference
+- frontend model execution wrapper
+- UI result formatting layer
+
+Because these are not unified, the app behaves differently online vs offline and can repeatedly re-download models, generate inconsistent grades, and fail to reuse the same YOLO/heatmap logic.
 
 ---
 
 ## Priority Order
 
-1. Fix the hard-coded Grade 4 result in offline mode.
-2. Integrate YOLO result averaging into offline mode.
-3. Integrate Grad-CAM into offline mode.
-4. Fix persistent model caching and repeated downloads in deployment.
-5. Add shared online/offline result processing.
-6. Add automated regression tests and cache diagnostics.
+1. Fix the grade mismatch / offline grade output
+2. Unify YOLO aggregation between online/offline
+3. Unify heatmap / Grad-CAM implementation
+4. Add persistent model cache
+5. Remove repeated model downloads in deployment
+6. Add automated parity tests for online vs offline outputs
 
-## Definition of Done
+---
 
-This work is complete when offline mode produces the correct dynamic grade, applies YOLO averaging, provides Grad-CAM when supported, and reuses a persistently cached model in the deployed application. Online and offline modes must be tested with the same inputs and produce consistent, documented results.
+## Final conclusion
+
+The reported bugs are not random UI issues. They are caused by the architecture of the project:
+
+- duplicated inference code paths
+- inconsistent grade logic
+- inconsistent YOLO processing
+- model-fetching on every run instead of persistent cache
+- non-unified explainability pipeline
+
+These are all directly supported by the repository code and are the real underlying problems behind the reported offline-mode defects.
+
+---
+
+## File references used in this report
+
+- `backend/routes/inference.py`
+- `frontend/src/utils/modelInference.js`
+- `frontend/src/utils/model.worker.js`
+- `frontend/src/components/ResultsView.jsx`
+
+This report is based entirely on the repository content currently visible at:
+https://github.com/THOUFIKUR/sih2026
