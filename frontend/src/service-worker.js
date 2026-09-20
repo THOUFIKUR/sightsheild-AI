@@ -8,7 +8,7 @@
  *
  * ISSUE 12: Bump APP_VERSION on redeploy so users get fresh caches and update banner.
  */
-const APP_VERSION = "1.0.4";
+const APP_VERSION = "1.0.5";
 
 import { clientsClaim } from "workbox-core";
 import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
@@ -30,15 +30,16 @@ clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
-// --- Pre-cache models & WASM during installation (Fix 4) ---
+// --- Pre-cache WASM during installation ---
+// NOTE: ONNX model files are NOT pre-cached here because on Vercel the repo
+// contains Git LFS pointer text files (~130 bytes) rather than real binaries.
+// Model binaries are fetched on-demand by model.worker.js with CDN fallback.
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(`retinascan-models-${APP_VERSION}`).then(cache => cache.addAll([
-      '/models/retina_model.onnx',
-      '/models/yolo_lesions.onnx',
       '/wasm/ort-wasm-simd-threaded.wasm',
       '/wasm/ort-wasm-simd-threaded.asyncify.wasm',
-    ]))
+    ]).catch(err => console.warn('[SW] WASM pre-cache failed (non-fatal):', err)))
   );
 });
 
@@ -102,10 +103,12 @@ registerRoute(
   }),
 );
 
-// --- ONNX model & WASM engine (cache-first after first download) ---
+// --- WASM engine files (cache-first after first download) ---
+// NOTE: /models/*.onnx are intentionally excluded here because on Vercel the repo
+// serves Git LFS pointer text files (~130 bytes) rather than real model binaries.
+// Model loading is handled by model.worker.js which detects pointers and fetches from CDN.
 registerRoute(
-  ({ url }) =>
-    url.pathname.startsWith("/models/") || url.pathname.startsWith("/wasm/"),
+  ({ url }) => url.pathname.startsWith("/wasm/"),
   new CacheFirst({
     cacheName: `retinascan-models-${APP_VERSION}`,
     plugins: [
