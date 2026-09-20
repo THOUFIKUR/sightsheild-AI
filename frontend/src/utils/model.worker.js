@@ -31,6 +31,39 @@ const YOLO_CLASSES = [
     "Microaneurysms (Sub-pixel focal dilatations)"
 ];
 
+// Fallback CDN URLs for GitHub LFS hosted models (used when Vercel clones Git LFS text pointers)
+const RETINA_CDN = 'https://media.githubusercontent.com/media/THOUFIKUR/sih2026/main/frontend/public/models/retina_model.onnx';
+const YOLO_CDN   = 'https://media.githubusercontent.com/media/THOUFIKUR/sih2026/main/frontend/public/models/yolo_lesions.onnx';
+
+/**
+ * Fetches the model binary buffer.
+ * If the local model is a Git LFS pointer text file (typically < 1 KB) instead of
+ * the true binary model, automatically fetches the real model from the CDN fallback.
+ */
+async function fetchModelBuffer(localPath, fallbackCdnUrl) {
+    try {
+        const res = await fetch(localPath);
+        if (res.ok) {
+            const buf = await res.arrayBuffer();
+            // Git LFS pointer files are ~130 bytes. Real ONNX models are > 10 MB.
+            if (buf.byteLength > 100000) {
+                return buf;
+            }
+            console.warn(`[Worker] ${localPath} is a Git LFS pointer (${buf.byteLength} bytes). Fetching binary model from CDN...`);
+        }
+    } catch (err) {
+        console.warn(`[Worker] Local fetch failed for ${localPath}:`, err.message);
+    }
+
+    if (fallbackCdnUrl) {
+        self.postMessage({ type: 'STATUS', message: 'Downloading AI model assets (first run)...' });
+        const cdnRes = await fetch(fallbackCdnUrl);
+        if (!cdnRes.ok) throw new Error(`Model download failed from CDN: HTTP ${cdnRes.status}`);
+        return await cdnRes.arrayBuffer();
+    }
+    throw new Error(`Failed to load valid model binary for ${localPath}`);
+}
+
 // ─── Post-Processing Utilities ────────────────────────────────────────────────
 
 /** Intersection over Union (IoU) calculation */
@@ -206,10 +239,9 @@ self.onmessage = async (e) => {
     // lesion detections without running the slow EfficientNet + ScoreCAM chain.
     if (type === 'YOLO_ONLY') {
         try {
-            self.postMessage({ type: 'STATUS', message: 'Loading Lesion Model...' });
-            // NOTE: 'webgl' is NOT available in Web Workers — only 'wasm' works reliably here.
             const options = { executionProviders: ['wasm'], graphOptimizationLevel: 'all' };
-            const lesionSession = await ort.InferenceSession.create('/models/yolo_lesions.onnx', options);
+            const yoloBuf = await fetchModelBuffer('/models/yolo_lesions.onnx', YOLO_CDN);
+            const lesionSession = await ort.InferenceSession.create(new Uint8Array(yoloBuf), options);
             self.postMessage({ type: 'STATUS', message: 'Running Lesion Detection...' });
 
             const YSIZE = 1024; // CRITICAL: must stay 1024
@@ -283,13 +315,13 @@ self.onmessage = async (e) => {
     try {
         self.postMessage({ type: 'STATUS', message: 'Initializing AI Models...' });
 
-        // Phase 1: Model Loading (Sequential for Memory Stability)
-        // NOTE: 'webgl' is NOT available in Web Workers — only 'wasm' works reliably here.
         const options = { executionProviders: ['wasm'], graphOptimizationLevel: 'all' };
-        const gradingSession = await ort.InferenceSession.create('/models/retina_model.onnx', options);
+        const gradingBuf = await fetchModelBuffer('/models/retina_model.onnx', RETINA_CDN);
+        const gradingSession = await ort.InferenceSession.create(new Uint8Array(gradingBuf), options);
         self.postMessage({ type: 'STATUS', message: 'Grading Model ✅' });
 
-        const lesionSession = await ort.InferenceSession.create('/models/yolo_lesions.onnx', options);
+        const lesionBuf = await fetchModelBuffer('/models/yolo_lesions.onnx', YOLO_CDN);
+        const lesionSession = await ort.InferenceSession.create(new Uint8Array(lesionBuf), options);
         self.postMessage({ type: 'STATUS', message: 'Lesion Model ✅' });
 
         // Phase 2: Severity Grading (EfficientNet)
