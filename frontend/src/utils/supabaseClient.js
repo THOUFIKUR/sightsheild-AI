@@ -1,11 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://retinascan-offline-fallback.supabase.co'
-const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.offline-screening-mode'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lncqhistfqlirqeyfnjp.supabase.co'
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || 'sb_publishable_qvZdYF2UiKBXInpHvsHYOA_Z4f9O1fw'
 
-export const isSupabaseConfigured = Boolean(
-  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_KEY
-)
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey)
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
