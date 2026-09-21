@@ -505,7 +505,24 @@ function clinicalArbitration(nnGrade, detections, imgW, imgH) {
 // ─── Main Message Handler ─────────────────────────────────────────────────────
 self.onmessage = async (e) => {
     const { type, tensorData, imageData, filename } = e.data;
-    if (type !== 'INFERENCE' && type !== 'YOLO_ONLY') return;
+    if (type !== 'INFERENCE' && type !== 'YOLO_ONLY' && type !== 'PREWARM') return;
+
+    // ── PREWARM path: silently cache both models in IDB for offline use ──────
+    if (type === 'PREWARM') {
+        try {
+            self.postMessage({ type: 'STATUS', message: 'Caching AI models for offline use…' });
+            await Promise.all([
+                fetchWithIDBCache('/models/retina_model.onnx', RETINA_CDN, `retina_model_v${IDB_VERSION}`),
+                fetchWithIDBCache('/models/yolo_lesions.onnx', YOLO_CDN,   `yolo_lesions_v${IDB_VERSION}`),
+            ]);
+            self.postMessage({ type: 'PREWARM_DONE' });
+        } catch (err) {
+            // Silently ignore prewarm failures — user is online so it doesn't matter right now
+            console.warn('[Worker] Prewarm failed (non-fatal):', err.message);
+            self.postMessage({ type: 'PREWARM_DONE' });
+        }
+        return;
+    }
 
     // ── YOLO_ONLY path ────────────────────────────────────────────────────────
     if (type === 'YOLO_ONLY') {
