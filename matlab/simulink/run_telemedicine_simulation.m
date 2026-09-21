@@ -77,4 +77,80 @@ fprintf('Offline Operation?             No (Fails on 2G)     Yes (100%% Edge PWA
 fprintf('Patient Report Delay           ~14 Days             < 4 Minutes\n');
 fprintf('Screening Cost per Patient     ~₹450                ~₹18\n');
 fprintf('=================================================================\n');
-fprintf('✓ MathWorks Simulink Telemedicine Simulation Module Verified.\n');
+fprintf('✓ MathWorks Simulink Telemedicine Simulation Module Verified.\n\n');
+
+% ─── 5. INTERACTIVE MATLAB VISUALIZATION DASHBOARD ─────────────────────────
+try
+    fig = figure('Name', 'MathWorks SIH26038 - Telemedicine Workflow Simulation', ...
+                 'Color', [0.06 0.08 0.14], 'Position', [100 100 1200 750]);
+    
+    % Subplot 1: Turnaround Time Comparison (Log scale / Bar)
+    subplot(2, 2, 1);
+    barData1 = [backlogDaysA * 24 * 60, avgTurnaroundTimeB_min];
+    b1 = bar(barData1, 0.45);
+    b1.FaceColor = 'flat';
+    b1.CData(1, :) = [0.88 0.25 0.35]; % Rose/Red for Centralized
+    b1.CData(2, :) = [0.15 0.78 0.45]; % Emerald/Green for Edge Hybrid
+    set(gca, 'XTickLabel', {'Centralized Cloud', 'RetinaScan Edge'}, ...
+        'Color', [0.09 0.12 0.20], 'XColor', 'w', 'YColor', 'w', 'YScale', 'log');
+    ylabel('Patient Wait Time (Minutes, Log Scale)', 'Color', 'w', 'FontWeight', 'bold');
+    title('Turnaround Time: 14 Days vs <4 Mins', 'Color', 'w', 'FontWeight', 'bold', 'FontSize', 11);
+    grid on; set(gca, 'GridColor', [0.25 0.30 0.40]);
+    text(1, barData1(1)*0.4, sprintf('~14 Days\n(~20,000 min)'), ...
+        'Color', 'w', 'HorizontalAlignment', 'center', 'FontWeight', 'bold');
+    text(2, barData1(2)*2.5, sprintf('< 4 Mins\n(Edge Instant)'), ...
+        'Color', 'w', 'HorizontalAlignment', 'center', 'FontWeight', 'bold');
+
+    % Subplot 2: Specialist Workload Hours
+    subplot(2, 2, 2);
+    barData2 = [totalOphthHoursRequiredA, totalOphthHoursRequiredB];
+    b2 = bar(barData2, 0.45);
+    b2.FaceColor = 'flat';
+    b2.CData(1, :) = [0.90 0.45 0.15]; % Amber
+    b2.CData(2, :) = [0.45 0.35 0.95]; % Violet
+    hold on;
+    yline(availableOphthHoursYear, '--w', sprintf('Annual Capacity (%d hrs)', availableOphthHoursYear), ...
+        'LineWidth', 1.5, 'LabelHorizontalAlignment', 'center');
+    set(gca, 'XTickLabel', {'Centralized (100k)', 'Edge Triage (15k)'}, ...
+        'Color', [0.09 0.12 0.20], 'XColor', 'w', 'YColor', 'w');
+    ylabel('Ophthalmologist Hours Required / Year', 'Color', 'w', 'FontWeight', 'bold');
+    title('Specialist Review Hours (85% Workload Drop)', 'Color', 'w', 'FontWeight', 'bold', 'FontSize', 11);
+    grid on; set(gca, 'GridColor', [0.25 0.30 0.40]);
+
+    % Subplot 3: Patient Triage Breakdown
+    subplot(2, 2, 3);
+    pieData = [85000, 15000];
+    pieLabels = {'85% Non-Referable (Normal/Mild at PHC)', '15% Referable (Escalated to Specialist)'};
+    p = pie(pieData, pieLabels);
+    p(1).FaceColor = [0.15 0.78 0.45];
+    p(3).FaceColor = [0.88 0.25 0.35];
+    for k = 2:2:length(p)
+        p(k).Color = 'w';
+        p(k).FontSize = 9;
+        p(k).FontWeight = 'bold';
+    end
+    title('Rural PHC Triage Distribution (100,000 Cohort)', 'Color', 'w', 'FontWeight', 'bold', 'FontSize', 11);
+
+    % Subplot 4: Annual Network Bandwidth Consumption
+    subplot(2, 2, 4);
+    bandwidthGB = [500, 75];
+    b4 = bar(bandwidthGB, 0.45);
+    b4.FaceColor = 'flat';
+    b4.CData(1, :) = [0.85 0.25 0.35];
+    b4.CData(2, :) = [0.20 0.65 0.95];
+    set(gca, 'XTickLabel', {'Cloud Centralized (500 GB)', 'Edge Hybrid (75 GB)'}, ...
+        'Color', [0.09 0.12 0.20], 'XColor', 'w', 'YColor', 'w');
+    ylabel('Total Rural Uplink Data (GB / Year)', 'Color', 'w', 'FontWeight', 'bold');
+    title('Bandwidth Conservation in Rural India', 'Color', 'w', 'FontWeight', 'bold', 'FontSize', 11);
+    grid on; set(gca, 'GridColor', [0.25 0.30 0.40]);
+    text(1, 250, '500 GB Uploaded\n(Bottlenecks on 2G)', 'Color', 'w', 'HorizontalAlignment', 'center', 'FontWeight', 'bold');
+    text(2, 120, '75 GB Uploaded\n(85% Bandwidth Saved)', 'Color', 'w', 'HorizontalAlignment', 'center', 'FontWeight', 'bold');
+
+    sgtitle('MathWorks SIH26038: District-Level Telemedicine Simulation (N = 100,000)', ...
+        'Color', 'w', 'FontWeight', 'bold', 'FontSize', 14);
+
+    saveas(fig, 'telemedicine_simulation_results.png');
+    fprintf('📊 Simulation plots generated and saved as: telemedicine_simulation_results.png\n');
+catch plotErr
+    fprintf('[Note] Graphical display not available in headless environment: %s\n', plotErr.message);
+end
