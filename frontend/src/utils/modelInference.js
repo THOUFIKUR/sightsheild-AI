@@ -2,6 +2,7 @@
 
 import { preprocessImageForONNX, validateFundusImage } from './imagePreprocessing';
 import { setScanInProgress } from '../components/BackendIndicator';
+import { downloadAllOfflineModels } from './offlineModelManager';
 
 export function getBackendUrl() {
     if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
@@ -101,33 +102,18 @@ async function analyzeViaBackend(imageFile, onProgress) {
         console.warn('[YOLO local] Failed, continuing without detections:', yoloErr.message);
     }
 
-    // Background prewarm: silently cache both ONNX models in IndexedDB for offline use.
-    // This runs AFTER the result is ready so it never delays the user.
-    prewarmOfflineModels();
+    // Background prewarm: ensure both ONNX models are cached in IndexedDB for offline use.
+    downloadAllOfflineModels().catch(e => console.warn('[Prewarm] Offline model cache note:', e.message));
 
     return baseResult;
 }
 
 /**
- * Silently pre-downloads and caches both ONNX models in IndexedDB using a
- * dedicated short-lived worker. No inference is run — pure caching only.
+ * Silently pre-downloads and caches both ONNX models in IndexedDB.
  * Called after every successful online (backend) scan so offline always works.
  */
-function prewarmOfflineModels() {
-    try {
-        const w = new Worker(new URL('./model.worker.js', import.meta.url), { type: 'module' });
-        w.onmessage = (ev) => {
-            if (ev.data?.type === 'PREWARM_DONE') {
-                console.log('[Prewarm] Both ONNX models cached for offline use ✅');
-                w.terminate();
-            }
-        };
-        w.onerror = () => w.terminate(); // silently ignore
-        w.postMessage({ type: 'PREWARM' });
-    } catch (e) {
-        // Non-fatal — just won't cache this time
-        console.warn('[Prewarm] Could not start prewarm worker:', e.message);
-    }
+export function prewarmOfflineModels() {
+    downloadAllOfflineModels().catch(e => console.warn('[Prewarm] Offline model cache note:', e.message));
 }
 
 /**

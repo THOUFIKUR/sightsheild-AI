@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { analyzeImage } from '../utils/modelInference';
 import { savePatient, logAudit, blobToBase64 } from '../utils/indexedDB';
 import { generateCombinedHeatmap } from '../utils/imageUtils';
+import { checkOfflineModelsStatus, subscribeModelStatus, downloadAllOfflineModels } from '../utils/offlineModelManager';
 import AutoRetinaCam from './AutoRetinaCam';
 
 const FORM_FIELDS = [
@@ -111,6 +112,34 @@ export default function Scanner() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [progressMsg, setProgressMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [modelStatus, setModelStatus] = useState({ ready: false, isDownloading: false, progress: 0, message: '' });
+
+    useEffect(() => {
+        const goOn  = () => setIsOnline(true);
+        const goOff = () => setIsOnline(false);
+        window.addEventListener('online', goOn);
+        window.addEventListener('offline', goOff);
+        return () => {
+            window.removeEventListener('online', goOn);
+            window.removeEventListener('offline', goOff);
+        };
+    }, []);
+
+    useEffect(() => {
+        checkOfflineModelsStatus().then((s) => {
+            setModelStatus(prev => ({ ...prev, ready: s.ready, isDownloading: s.isDownloading }));
+        });
+        const unsubscribe = subscribeModelStatus((state) => {
+            setModelStatus({
+                ready: state.status === 'ready',
+                isDownloading: state.status === 'downloading',
+                progress: state.progress || 0,
+                message: state.message || '',
+            });
+        });
+        return () => unsubscribe();
+    }, []);
 
     const [patientData, setPatientData] = useState(() => {
         const saved = sessionStorage.getItem('retinascan_patient_draft');
@@ -160,6 +189,12 @@ export default function Scanner() {
 
         if (!patientData.name.trim() || !patientData.age || !patientData.contact.trim()) {
             setErrorMsg('Mandatory clinical data missing: Name, Age, and Contact required.');
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            return;
+        }
+
+        if (!navigator.onLine && !modelStatus.ready) {
+            setErrorMsg('Offline AI models are not yet cached on this device. Please connect to the internet once so the AI models (~56 MB) can download for offline use.');
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
             return;
         }
@@ -302,6 +337,63 @@ export default function Scanner() {
                 <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mt-2">Dual-eye inference engine · OD Required • OS Optional</p>
             </div>
 
+            {/* Offline AI Model Status Banner */}
+            {modelStatus.isDownloading && (
+                <div className="bg-violet-950/40 border border-violet-500/40 p-4 rounded-2xl flex items-center justify-between gap-4 animate-fade-in">
+                    <div className="flex items-center gap-3">
+                        <span className="w-2.5 h-2.5 rounded-full bg-violet-400 animate-ping shrink-0" />
+                        <div>
+                            <p className="text-violet-300 text-xs font-black uppercase tracking-wider">Caching AI Models for Offline Use</p>
+                            <p className="text-violet-200/70 text-xs">{modelStatus.message || `${modelStatus.progress}% downloaded`}</p>
+                        </div>
+                    </div>
+                    <div className="w-32 bg-[#1F2937] rounded-full h-2 overflow-hidden shrink-0">
+                        <div className="bg-gradient-to-r from-violet-500 to-blue-500 h-full transition-all duration-300" style={{ width: `${Math.max(5, modelStatus.progress)}%` }} />
+                    </div>
+                </div>
+            )}
+
+            {!isOnline && !modelStatus.ready && !modelStatus.isDownloading && (
+                <div className="bg-amber-950/40 border border-amber-500/40 p-4 rounded-2xl flex items-start gap-3 animate-fade-in">
+                    <span className="text-amber-400 text-lg shrink-0">⚠️</span>
+                    <div className="space-y-1">
+                        <p className="text-amber-300 text-xs font-black uppercase tracking-wider">Offline AI Models Not Yet Cached</p>
+                        <p className="text-amber-200/70 text-xs">
+                            To use RetinaScan AI offline in the field, connect to the internet once so the browser can cache the AI models (~56 MB). Once cached, screenings run 100% offline.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {isOnline && !modelStatus.ready && !modelStatus.isDownloading && (
+                <div className="bg-[#111827] border border-[#1F2937] p-4 rounded-2xl flex items-center justify-between gap-3 animate-fade-in">
+                    <div className="flex items-center gap-3">
+                        <span className="text-violet-400 text-base">⚡</span>
+                        <div>
+                            <p className="text-slate-200 text-xs font-black uppercase tracking-wider">Offline Screening Setup</p>
+                            <p className="text-slate-400 text-xs">Pre-cache AI models (~56 MB) so full screening works anywhere without internet.</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => downloadAllOfflineModels().catch(e => setErrorMsg(e.message))}
+                        className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold whitespace-nowrap transition-all shadow-md shadow-violet-900/30 shrink-0"
+                    >
+                        Cache Models Now
+                    </button>
+                </div>
+            )}
+
+            {modelStatus.ready && (
+                <div className="bg-emerald-950/20 border border-emerald-500/20 px-4 py-2 rounded-2xl flex items-center justify-between text-xs text-emerald-400">
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                        <span className="font-bold">Offline AI Engine Ready</span>
+                        <span className="text-emerald-500/70 text-[11px] hidden sm:inline">— On-device models cached for field use</span>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-emerald-500/80">56.5 MB Cached</span>
+                </div>
+            )}
+
             {/* Fundus Images Section */}
             <div className="card-elevated space-y-8 bg-[#111827]">
                 <div className="flex items-center justify-between">
@@ -420,7 +512,13 @@ export default function Scanner() {
                 <div className="bg-rose-900/30 border border-rose-500/40 p-6 rounded-[24px] flex items-start gap-4 animate-shake">
                     <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-lg">!</div>
                     <div className="space-y-1">
-                        <p className="text-rose-400 text-xs font-black uppercase tracking-widest">Incomplete Data</p>
+                        <p className="text-rose-400 text-xs font-black uppercase tracking-widest">
+                            {errorMsg.toLowerCase().includes('model') || errorMsg.toLowerCase().includes('offline') || errorMsg.toLowerCase().includes('connect')
+                                ? 'Offline AI Setup Notice'
+                                : errorMsg.toLowerCase().includes('data') || errorMsg.toLowerCase().includes('missing')
+                                    ? 'Clinical Data Incomplete'
+                                    : 'Diagnostic Notice'}
+                        </p>
                         <p className="text-rose-200/80 text-sm font-medium">{errorMsg}</p>
                     </div>
                 </div>

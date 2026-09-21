@@ -28,6 +28,7 @@ import { flushSyncQueue, syncPatientsFromCloud } from './utils/indexedDB';
 import { supabase } from './utils/supabaseClient';
 import { loadMode, saveMode } from './utils/screeningMode';
 import { ScreeningContext, useScreeningMode } from './utils/screeningContext';
+import { autoPrewarmIfOnline } from './utils/offlineModelManager';
 
 /**
  * Toast notification for service worker updates.
@@ -556,12 +557,18 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handleOnlineStatus = () => flushSyncQueue();
+    const handleOnlineStatus = () => {
+      flushSyncQueue();
+      autoPrewarmIfOnline();
+    };
     window.addEventListener('online', handleOnlineStatus);
     return () => window.removeEventListener('online', handleOnlineStatus);
   }, []);
 
   useEffect(() => {
+    // Proactively prewarm and cache offline AI models in IndexedDB
+    autoPrewarmIfOnline();
+
     const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
     const ping = () => fetch(`${BACKEND}/health`, { mode: 'no-cors' }).catch(() => {});
     ping();
