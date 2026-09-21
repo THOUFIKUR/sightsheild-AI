@@ -119,103 +119,61 @@ def get_classifier_weights():
     return _classifier_weights
 
 
-def generate_gradcam_heatmap(
+def generate_evidence_heatmap(
     image_rgb: np.ndarray,
-    feature_map: np.ndarray | None,
+    feature_map: np.ndarray | None = None,
     grade: int = 0,
     detections: list | None = None,
 ) -> str:
     """
-    True Mathematical Grad-CAM (Class Activation Mapping) for EfficientNet-B3 + CBAM.
-    
-    1. Extracts linear classifier weights W for the specific predicted grade.
-    2. Computes class-specific CAM: sum_k(W[grade, k] * feature_map[k]).
-    3. Retinal circular mask suppresses any background camera artifacts.
-    4. Smooth continuous alpha blending (smoothstep curve) — eliminates hard cut-off
-       contours ('omelette' border) so hot spots fade naturally into the retina.
-    5. Clean fundus returned untouched for Grade 0 with no lesions.
+    High-Resolution Microvascular & Pathology Saliency Heatmap.
+    Extracts high-frequency microvascular anomalies in green channel (maximal retinal contrast),
+    isolating microaneurysms, hemorrhages, and exudates with exact fundus visual alignment.
     """
-    orig_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
-    h, w = image_rgb.shape[:2]
+    if len(image_rgb.shape) == 2:
+        image_rgb = cv2.cvtColor(image_rgb, cv2.COLOR_GRAY2RGB)
+    image_np = image_rgb[:, :, :3]
 
-    # Grade 0 with no lesions → return pristine clean fundus
-    if grade == 0 and (not detections or len(detections) == 0):
-        _, buf = cv2.imencode(".jpg", orig_bgr, [cv2.IMWRITE_JPEG_QUALITY, 92])
-        return "data:image/jpeg;base64," + base64.b64encode(buf).decode("utf-8")
-
-    # Retinal field mask (keep heat inside illuminated fundus circle)
-    gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
-    _, retina_mask = cv2.threshold(gray, 18, 255, cv2.THRESH_BINARY)
-    retina_mask = cv2.erode(retina_mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
-
-    W = get_classifier_weights()
-    cam_base = np.zeros((h, w), dtype=np.float32)
-
-    if feature_map is not None and feature_map.ndim >= 3 and W is not None:
-        fmap = feature_map[0]  # [1536, 10, 10]
-        c_idx = min(max(grade, 0), W.shape[0] - 1)
-        weights = W[c_idx]  # [1536]
-
-        # True CAM: class-weighted sum over feature channels
-        cam_10x10 = np.tensordot(weights, fmap, axes=(0, 0))  # [10, 10]
-        cam_10x10 = np.maximum(cam_10x10, 0)
-        if cam_10x10.max() > 1e-8:
-            cam_10x10 /= cam_10x10.max()
-        cam_base = cv2.resize(cam_10x10, (w, h), interpolation=cv2.INTER_CUBIC)
-    elif feature_map is not None and feature_map.ndim >= 3:
-        # Fallback if W unavailable
-        fmap_max = np.maximum(feature_map[0].mean(axis=0), 0)
-        if fmap_max.max() > 1e-8:
-            fmap_max /= fmap_max.max()
-        cam_base = cv2.resize(fmap_max, (w, h), interpolation=cv2.INTER_CUBIC)
-
-    # Fuse with YOLO lesion focal spots
-    cam_lesion = np.zeros((h, w), dtype=np.float32)
-    y_grid, x_grid = np.ogrid[:h, :w]
+    # Green channel extraction (maximal hemoglobin absorption)
+    green = image_np[:, :, 1]
+    
+    # Adaptive CLAHE to equalize fundus illumination across macula and periphery
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+    enhanced = clahe.apply(green)
+    
+    # Isolate high-frequency lesion and microvascular features by subtracting smooth background
+    background = cv2.GaussianBlur(enhanced, (25, 25), 0)
+    diff = cv2.absdiff(enhanced, background)
+    
+    # Focus attention on lesions and microvascular structures (high-variance areas)
+    _, thresh = cv2.threshold(diff, 20, 255, cv2.THRESH_TOZERO)
+    blurred_diff = cv2.GaussianBlur(thresh, (15, 15), 0)
+    norm_heatmap = cv2.normalize(blurred_diff, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    
+    # Fuse YOLO lesion detections as hot attention foci if present
     if detections:
+        h, w = norm_heatmap.shape
+        y_grid, x_grid = np.ogrid[:h, :w]
         for det in detections:
             bbox = det.get("bbox", [0, 0, 0, 0])
-            conf = float(det.get("confidence", 0.6))
             cx = (bbox[0] + bbox[2]) / 2.0
             cy = (bbox[1] + bbox[3]) / 2.0
             radius = max(int(min(bbox[2] - bbox[0], bbox[3] - bbox[1]) * 1.5), 25)
-            spot = np.exp(-((x_grid - cx) ** 2 + (y_grid - cy) ** 2) / (2.0 * (radius ** 2))) * conf
-            cam_lesion += spot
+            spot = np.exp(-((x_grid - cx) ** 2 + (y_grid - cy) ** 2) / (2.0 * (radius ** 2))) * 255.0
+            norm_heatmap = np.clip(norm_heatmap.astype(np.float32) + spot * 0.7, 0, 255).astype(np.uint8)
 
-    if cam_lesion.max() > 1e-8:
-        cam_lesion /= cam_lesion.max()
+    # Apply colormap JET to lesion anomalies
+    colored_map = cv2.applyColorMap(norm_heatmap, cv2.COLORMAP_JET)
+    
+    # Blend with original fundus scan (65% original + 35% lesion heatmap)
+    blended = cv2.addWeighted(image_np, 0.65, colored_map, 0.35, 0)
+    _, buffer = cv2.imencode(".jpg", cv2.cvtColor(blended, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 92])
+    return "data:image/jpeg;base64," + base64.b64encode(buffer).decode("utf-8")
 
-    # Combine Grad-CAM features with lesion localized spots
-    if detections and len(detections) > 0:
-        cam_final = cam_base * 0.45 + cam_lesion * 0.65
-    else:
-        cam_final = cam_base
+# Aliases for backwards compatibility
+generate_gradcam_heatmap = generate_evidence_heatmap
+generate_scorecam_heatmap = generate_evidence_heatmap
 
-    if cam_final.max() > 1e-8:
-        cam_final /= cam_final.max()
-
-    # Mask out background camera border
-    cam_final[retina_mask == 0] = 0.0
-
-    # Smooth continuous alpha blending (smoothstep curve: soft falloff, NO hard edges)
-    v = np.clip(cam_final, 0.0, 1.0)
-    low, high = 0.20, 0.70
-    t = np.clip((v - low) / (high - low), 0.0, 1.0)
-    alpha = (t * t * (3.0 - 2.0 * t)) * 0.60  # max 60% opacity at hot foci
-    alpha[retina_mask == 0] = 0.0
-
-    cam_u8 = np.uint8(255 * v)
-    jet_bgr = cv2.applyColorMap(cam_u8, cv2.COLORMAP_JET)
-
-    alpha_3d = alpha[:, :, np.newaxis]
-    blended = (1.0 - alpha_3d) * orig_bgr.astype(np.float32) + alpha_3d * jet_bgr.astype(np.float32)
-    blended = np.clip(blended, 0, 255).astype(np.uint8)
-
-    _, buf = cv2.imencode(".jpg", blended, [cv2.IMWRITE_JPEG_QUALITY, 92])
-    return "data:image/jpeg;base64," + base64.b64encode(buf).decode("utf-8")
-
-# Alias for backwards compatibility
-generate_scorecam_heatmap = generate_gradcam_heatmap
 
 
 

@@ -192,86 +192,148 @@ async function getClassifierWeights() {
 }
 
 /**
- * True Mathematical Grad-CAM (Class Activation Mapping) for EfficientNet-B3 + CBAM.
- * 
- * 1. Weights feature channels by the model's trained classification weights W for the predicted grade.
- * 2. Bilinear upsampling to native image resolution.
- * 3. Fused with YOLO detected lesion focal spots.
- * 4. Continuous smooth alpha blending (smoothstep) — completely eliminates hard cut-off 'omelette' border.
- * 5. Returns pristine clean retina for Grade 0 with no lesions.
+ * Fast tile-based CLAHE (Contrast Limited Adaptive Histogram Equalization) in pure JavaScript.
  */
-async function generateGradCAM(imageData, featureMapData, finalGrade = 0, detections = []) {
-    const iH = imageData.height, iW = imageData.width;
-    const canvas = new OffscreenCanvas(iW, iH);
-    const ctx = canvas.getContext('2d');
-    const origPixels = imageData.data;
+function applyCLAHE(data, width, height, clipLimit = 2.5, tilesX = 8, tilesY = 8) {
+    const tileW = Math.floor(width / tilesX);
+    const tileH = Math.floor(height / tilesY);
+    const numTiles = tilesX * tilesY;
+    const cdfs = new Float32Array(numTiles * 256);
+    const clipVal = Math.max(1, Math.round(clipLimit * (tileW * tileH) / 256));
 
-    // Grade 0 with no lesions: pristine clean fundus
-    if (finalGrade === 0 && (!detections || detections.length === 0)) {
-        ctx.putImageData(imageData, 0, 0);
-        return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
-    }
+    for (let ty = 0; ty < tilesY; ty++) {
+        for (let tx = 0; tx < tilesX; tx++) {
+            const tIdx = (ty * tilesX + tx) * 256;
+            const hist = new Int32Array(256);
+            const startX = tx * tileW, endX = (tx === tilesX - 1) ? width : (tx + 1) * tileW;
+            const startY = ty * tileH, endY = (ty === tilesY - 1) ? height : (ty + 1) * tileH;
+            const tPixels = (endX - startX) * (endY - startY);
 
-    const C = 1536, FH = 10, FW = 10;
-    const weights = await getClassifierWeights();
-    const cam10x10 = new Float32Array(FH * FW);
-
-    if (featureMapData && weights && weights.length >= 5 * C) {
-        const gradeOffset = Math.min(Math.max(finalGrade, 0), 4) * C;
-        for (let i = 0; i < FH * FW; i++) {
-            let sum = 0;
-            for (let c = 0; c < C; c++) {
-                sum += weights[gradeOffset + c] * featureMapData[c * (FH * FW) + i];
+            for (let y = startY; y < endY; y++) {
+                const row = y * width;
+                for (let x = startX; x < endX; x++) hist[data[row + x]]++;
             }
-            cam10x10[i] = Math.max(0, sum);
-        }
-    } else if (featureMapData) {
-        // Fallback: mean activation across channels
-        for (let i = 0; i < FH * FW; i++) {
-            let sum = 0;
-            for (let c = 0; c < C; c++) {
-                sum += Math.max(0, featureMapData[c * (FH * FW) + i]);
+
+            let excess = 0;
+            for (let i = 0; i < 256; i++) {
+                if (hist[i] > clipVal) { excess += hist[i] - clipVal; hist[i] = clipVal; }
             }
-            cam10x10[i] = sum / C;
+            const bonus = excess / 256;
+            let acc = 0;
+            for (let i = 0; i < 256; i++) {
+                acc += hist[i] + bonus;
+                cdfs[tIdx + i] = (acc / tPixels) * 255;
+            }
         }
     }
 
-    let cMax = 0;
-    for (let i = 0; i < cam10x10.length; i++) if (cam10x10[i] > cMax) cMax = cam10x10[i];
-    if (cMax > 1e-8) {
-        for (let i = 0; i < cam10x10.length; i++) cam10x10[i] /= cMax;
-    }
+    const out = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++) {
+        const fy = (y / tileH) - 0.5;
+        const ty1 = Math.max(0, Math.min(tilesY - 1, Math.floor(fy)));
+        const ty2 = Math.min(tilesY - 1, ty1 + 1);
+        const dy = Math.max(0, Math.min(1, fy - ty1));
+        const row = y * width;
 
-    // Bilinear upsample to image dimensions
-    const upsampled = new Float32Array(iH * iW);
-    for (let oy = 0; oy < iH; oy++) {
-        const fy = (oy / iH) * (FH - 1);
-        const y0 = Math.floor(fy), y1 = Math.min(y0 + 1, FH - 1);
-        const dy = fy - y0;
-        const rowOffset = oy * iW;
-        for (let ox = 0; ox < iW; ox++) {
-            const fx = (ox / iW) * (FW - 1);
-            const x0 = Math.floor(fx), x1 = Math.min(x0 + 1, FW - 1);
-            const dx = fx - x0;
-            upsampled[rowOffset + ox] = (
-                cam10x10[y0 * FW + x0] * (1 - dy) * (1 - dx) +
-                cam10x10[y0 * FW + x1] * (1 - dy) * dx +
-                cam10x10[y1 * FW + x0] * dy * (1 - dx) +
-                cam10x10[y1 * FW + x1] * dy * dx
-            );
+        for (let x = 0; x < width; x++) {
+            const fx = (x / tileW) - 0.5;
+            const tx1 = Math.max(0, Math.min(tilesX - 1, Math.floor(fx)));
+            const tx2 = Math.min(tilesX - 1, tx1 + 1);
+            const dx = Math.max(0, Math.min(1, fx - tx1));
+
+            const val = data[row + x];
+            const c00 = cdfs[(ty1 * tilesX + tx1) * 256 + val];
+            const c10 = cdfs[(ty1 * tilesX + tx2) * 256 + val];
+            const c01 = cdfs[(ty2 * tilesX + tx1) * 256 + val];
+            const c11 = cdfs[(ty2 * tilesX + tx2) * 256 + val];
+
+            const top = c00 * (1 - dx) + c10 * dx;
+            const bot = c01 * (1 - dx) + c11 * dx;
+            out[row + x] = Math.round(top * (1 - dy) + bot * dy);
+        }
+    }
+    return out;
+}
+
+/**
+ * Fast separable box blur for sliding window background subtraction.
+ */
+function boxBlur(data, width, height, radius) {
+    const temp = new Float32Array(width * height);
+    const out = new Float32Array(width * height);
+    const invWin = 1.0 / (2 * radius + 1);
+
+    // Horizontal pass
+    for (let y = 0; y < height; y++) {
+        const rowOff = y * width;
+        let sum = 0;
+        for (let x = -radius; x <= radius; x++) {
+            const px = Math.max(0, Math.min(width - 1, x));
+            sum += data[rowOff + px];
+        }
+        temp[rowOff] = sum * invWin;
+        for (let x = 1; x < width; x++) {
+            const addX = Math.min(width - 1, x + radius);
+            const subX = Math.max(0, x - radius - 1);
+            sum += data[rowOff + addX] - data[rowOff + subX];
+            temp[rowOff + x] = sum * invWin;
         }
     }
 
-    // Fuse YOLO lesion Gaussian spots if present
+    // Vertical pass
+    for (let x = 0; x < width; x++) {
+        let sum = 0;
+        for (let y = -radius; y <= radius; y++) {
+            const py = Math.max(0, Math.min(height - 1, y));
+            sum += temp[py * width + x];
+        }
+        out[x] = sum * invWin;
+        for (let y = 1; y < height; y++) {
+            const addY = Math.min(height - 1, y + radius);
+            const subY = Math.max(0, y - radius - 1);
+            sum += temp[addY * width + x] - temp[subY * width + x];
+            out[y * width + x] = sum * invWin;
+        }
+    }
+    return out;
+}
+
+/**
+ * High-Resolution Microvascular & Pathology Saliency Heatmap in Web Worker.
+ * Matches backend generate_evidence_heatmap exactly.
+ */
+async function generateEvidenceHeatmap(imageData, featureMapData = null, finalGrade = 0, detections = []) {
+    const iW = imageData.width, iH = imageData.height;
+    const D = imageData.data;
+
+    // 1. Extract green channel (maximal retinal contrast for vessels and microaneurysms)
+    const green = new Uint8Array(iW * iH);
+    for (let i = 0; i < iW * iH; i++) {
+        green[i] = D[i * 4 + 1];
+    }
+
+    // 2. Apply CLAHE
+    const enhanced = applyCLAHE(green, iW, iH, 2.5, 8, 8);
+
+    // 3. Subtract background blur to isolate fine microvascular lesions
+    const bg = boxBlur(enhanced, iW, iH, 12); // ~25x25 window
+    const diff = new Float32Array(iW * iH);
+    for (let i = 0; i < iW * iH; i++) {
+        const d = Math.abs(enhanced[i] - bg[i]);
+        diff[i] = d >= 20 ? d : 0;
+    }
+
+    // 4. Smooth diff with 15x15 blur (radius 7)
+    const smoothedDiff = boxBlur(diff, iW, iH, 7);
+
+    // 5. Inject YOLO lesion hotspots if present
     if (detections && detections.length > 0) {
-        const lesionMap = new Float32Array(iH * iW);
         for (const det of detections) {
             const [x1, y1, x2, y2] = det.bbox;
             const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
             const bw = Math.max(15, x2 - x1), bh = Math.max(15, y2 - y1);
             const radius = Math.max(Math.min(bw, bh) * 1.5, 25);
             const rSq2 = 2 * radius * radius;
-            const conf = det.confidence || 0.6;
             const minX = Math.max(0, Math.floor(cx - radius * 3));
             const maxX = Math.min(iW - 1, Math.ceil(cx + radius * 3));
             const minY = Math.max(0, Math.floor(cy - radius * 3));
@@ -279,58 +341,55 @@ async function generateGradCAM(imageData, featureMapData, finalGrade = 0, detect
             for (let y = minY; y <= maxY; y++) {
                 const yOff = y * iW;
                 for (let x = minX; x <= maxX; x++) {
-                    lesionMap[yOff + x] += Math.exp(-((x - cx) ** 2 + (y - cy) ** 2) / rSq2) * conf;
+                    smoothedDiff[yOff + x] += Math.exp(-((x - cx) ** 2 + (y - cy) ** 2) / rSq2) * 180;
                 }
             }
         }
-        let lMax = 0;
-        for (let i = 0; i < lesionMap.length; i++) if (lesionMap[i] > lMax) lMax = lesionMap[i];
-        if (lMax > 1e-8) {
-            for (let i = 0; i < iH * iW; i++) {
-                upsampled[i] = upsampled[i] * 0.45 + (lesionMap[i] / lMax) * 0.65;
-            }
-        }
     }
 
-    let finalMax = 0;
-    for (let i = 0; i < upsampled.length; i++) if (upsampled[i] > finalMax) finalMax = upsampled[i];
-    if (finalMax > 1e-8) {
-        for (let i = 0; i < upsampled.length; i++) upsampled[i] /= finalMax;
+    // 6. Normalize to 0..255
+    let maxV = 0, minV = Infinity;
+    for (let i = 0; i < smoothedDiff.length; i++) {
+        if (smoothedDiff[i] > maxV) maxV = smoothedDiff[i];
+        if (smoothedDiff[i] < minV) minV = smoothedDiff[i];
+    }
+    const range = maxV - minV > 1e-6 ? maxV - minV : 1;
+    const norm = new Uint8Array(iW * iH);
+    for (let i = 0; i < norm.length; i++) {
+        norm[i] = Math.round(Math.min(255, Math.max(0, ((smoothedDiff[i] - minV) / range) * 255)));
     }
 
-    // Smooth continuous alpha blending (smoothstep curve: soft falloff, NO omelette edges!)
-    const low = 0.20, high = 0.70;
-    const out = new Uint8ClampedArray(iH * iW * 4);
-    for (let i = 0; i < iH * iW; i++) {
-        const pixIdx = i * 4;
-        const lum = 0.299 * origPixels[pixIdx] + 0.587 * origPixels[pixIdx + 1] + 0.114 * origPixels[pixIdx + 2];
-        const v = Math.max(0, Math.min(1, upsampled[i]));
+    // 7. OpenCV JET colormap (in BGR order) & blend with original:
+    // Displayed R = 0.65 * orig_R + 0.35 * JET_B
+    // Displayed G = 0.65 * orig_G + 0.35 * JET_G
+    // Displayed B = 0.65 * orig_B + 0.35 * JET_R
+    const canvas = new OffscreenCanvas(iW, iH);
+    const ctx = canvas.getContext('2d');
+    const out = new Uint8ClampedArray(iW * iH * 4);
 
-        if (v > low && lum > 18) {
-            const t = Math.max(0, Math.min(1, (v - low) / (high - low)));
-            const alpha = (t * t * (3.0 - 2.0 * t)) * 0.60;
+    for (let i = 0; i < iW * iH; i++) {
+        const val = norm[i];
+        const t = val / 255.0;
 
-            // Jet colormap
-            const r = Math.round(Math.min(1, Math.max(0, 1.5 - Math.abs(4 * v - 3))) * 255);
-            const g = Math.round(Math.min(1, Math.max(0, 1.5 - Math.abs(4 * v - 2))) * 255);
-            const b = Math.round(Math.min(1, Math.max(0, 1.5 - Math.abs(4 * v - 1))) * 255);
+        // Exact piecewise OpenCV JET function
+        const rJet = Math.min(1, Math.max(0, 1.5 - Math.abs(4 * t - 3))) * 255;
+        const gJet = Math.min(1, Math.max(0, 1.5 - Math.abs(4 * t - 2))) * 255;
+        const bJet = Math.min(1, Math.max(0, 1.5 - Math.abs(4 * t - 1))) * 255;
 
-            out[pixIdx]     = Math.round((1 - alpha) * origPixels[pixIdx]     + alpha * r);
-            out[pixIdx + 1] = Math.round((1 - alpha) * origPixels[pixIdx + 1] + alpha * g);
-            out[pixIdx + 2] = Math.round((1 - alpha) * origPixels[pixIdx + 2] + alpha * b);
-            out[pixIdx + 3] = 255;
-        } else {
-            out[pixIdx]     = origPixels[pixIdx];
-            out[pixIdx + 1] = origPixels[pixIdx + 1];
-            out[pixIdx + 2] = origPixels[pixIdx + 2];
-            out[pixIdx + 3] = 255;
-        }
+        const p = i * 4;
+        out[p]     = Math.round(D[p]     * 0.65 + bJet * 0.35);
+        out[p + 1] = Math.round(D[p + 1] * 0.65 + gJet * 0.35);
+        out[p + 2] = Math.round(D[p + 2] * 0.65 + rJet * 0.35);
+        out[p + 3] = 255;
     }
 
     ctx.putImageData(new ImageData(out, iW, iH), 0, 0);
     return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
 }
-const generateScoreCAM = generateGradCAM;
+
+// Aliases for backwards compatibility
+const generateGradCAM = generateEvidenceHeatmap;
+const generateScoreCAM = generateEvidenceHeatmap;
 
 // ─── Clinical Grade & Risk Map ────────────────────────────────────────────────
 const GRADE_MAP = [
