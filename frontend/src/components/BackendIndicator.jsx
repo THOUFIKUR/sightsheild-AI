@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getQueuedRequests } from '../utils/indexedDB';
+import { getBackendUrl } from '../utils/modelInference';
 
 /**
  * Reference counter: incremented when a scan starts, decremented when it ends.
@@ -27,7 +28,7 @@ export default function BackendIndicator() {
             if (isScanInProgress()) return;
 
             try {
-                const base = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+                const base = getBackendUrl();
                 const controller = new AbortController();
                 // 8s timeout: enough for a busy backend but short enough to detect real outages
                 const timeoutId = setTimeout(() => controller.abort(), 8000);

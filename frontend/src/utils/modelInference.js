@@ -3,6 +3,13 @@
 import { preprocessImageForONNX, validateFundusImage } from './imagePreprocessing';
 import { setScanInProgress } from '../components/BackendIndicator';
 
+export function getBackendUrl() {
+    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        return 'http://localhost:8000';
+    }
+    return import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+}
+
 /**
  * Sends the image to the FastAPI backend for fast server-side ONNX inference.
  * Falls back to browser ONNX if the backend is unreachable or times out.
@@ -13,7 +20,7 @@ async function analyzeViaBackend(imageFile, onProgress) {
     const formData = new FormData();
     formData.append('file', imageFile);
     
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = getBackendUrl();
 
     // PERF: skip_yolo=true skips the slow 1024×1024 YOLO model on the backend.
     const inferenceResponse = await fetch(`${backendUrl}/api/inference/?skip_yolo=true`, {

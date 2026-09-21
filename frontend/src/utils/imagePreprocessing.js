@@ -135,57 +135,94 @@ export const calculateBlur = (imageData) => {
 };
 
 /**
- * Preprocesses an image element for EfficientNetB3 ONNX inference.
- * Performs resizing, center-cropping, blur detection, and normalization.
- * 
+ * Preprocesses an image element for EfficientNetB3+CBAM ONNX inference.
+ *
+ * Pipeline:
+ *   1. Draw image onto a large canvas to get full-resolution pixel data
+ *   2. Auto-crop black circular fundus border (pixels < brightness 10)
+ *   3. Pad cropped region to square with black fill (preserves aspect ratio)
+ *   4. Resize to 300×300 (ONNX model contract — trained at this resolution)
+ *   5. ImageNet normalise: mean=[0.485,0.456,0.406] std=[0.229,0.224,0.225]
+ *   6. Return CHW Float32Array tensor [3, 300, 300]
+ *
  * @param {HTMLImageElement} imageElement - The source image element.
  * @returns {Object} { tensorData: Float32Array, blurScore: number, imageData: ImageData }
  */
 export const preprocessImageForONNX = (imageElement) => {
-    // CRITICAL: Input must be exactly 224x224px — EfficientNetB3 was trained at this resolution.
-    // Changing this value will silently corrupt inference results.
-    const TARGET_SIZE = 224;
+    // CRITICAL: must match ONNX model input shape — EfficientNetB3+CBAM is 300×300.
+    const TARGET_SIZE = 300;
 
-    const preprocessingCanvas = document.createElement('canvas');
-    preprocessingCanvas.width = TARGET_SIZE;
-    preprocessingCanvas.height = TARGET_SIZE;
-    const preprocessingCtx = preprocessingCanvas.getContext('2d');
+    // ── Step 1: Draw at native resolution for high-quality crop detection ──────
+    const srcCanvas = document.createElement('canvas');
+    srcCanvas.width  = imageElement.width;
+    srcCanvas.height = imageElement.height;
+    const srcCtx = srcCanvas.getContext('2d');
+    srcCtx.drawImage(imageElement, 0, 0);
+    const srcData = srcCtx.getImageData(0, 0, imageElement.width, imageElement.height);
+    const px = srcData.data;
+    const W  = imageElement.width;
+    const H  = imageElement.height;
 
-    // Calculate crop dimensions to maintain aspect ratio (Center Crop)
-    const scaleFactor = Math.max(TARGET_SIZE / imageElement.width, TARGET_SIZE / imageElement.height);
-    const scaledWidth = imageElement.width * scaleFactor;
-    const scaledHeight = imageElement.height * scaleFactor;
-    const offsetX = (TARGET_SIZE - scaledWidth) / 2;
-    const offsetY = (TARGET_SIZE - scaledHeight) / 2;
+    // ── Step 2: Auto-crop black border ─────────────────────────────────────────
+    // Find bounding box of pixels with brightness > 10
+    let minX = W, maxX = 0, minY = H, maxY = 0;
+    for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+            const idx = (y * W + x) * 4;
+            const brightness = (px[idx] + px[idx+1] + px[idx+2]) / 3;
+            if (brightness > 10) {
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+    }
+    // Guard against degenerate images (very dark)
+    if (maxX <= minX || maxY <= minY) {
+        minX = 0; minY = 0; maxX = W - 1; maxY = H - 1;
+    }
+    const cropW = maxX - minX + 1;
+    const cropH = maxY - minY + 1;
 
-    preprocessingCtx.drawImage(imageElement, offsetX, offsetY, scaledWidth, scaledHeight);
+    // ── Step 3: Pad to square ──────────────────────────────────────────────────
+    const side   = Math.max(cropW, cropH);
+    const xOff   = Math.floor((side - cropW) / 2);
+    const yOff   = Math.floor((side - cropH) / 2);
 
-    const imageData = preprocessingCtx.getImageData(0, 0, TARGET_SIZE, TARGET_SIZE);
+    const squareCanvas = document.createElement('canvas');
+    squareCanvas.width  = side;
+    squareCanvas.height = side;
+    const sqCtx = squareCanvas.getContext('2d');
+    sqCtx.fillStyle = '#000000';
+    sqCtx.fillRect(0, 0, side, side);
+    sqCtx.drawImage(srcCanvas, minX, minY, cropW, cropH, xOff, yOff, cropW, cropH);
+
+    // ── Step 4: Resize to TARGET_SIZE × TARGET_SIZE ────────────────────────────
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width  = TARGET_SIZE;
+    outCanvas.height = TARGET_SIZE;
+    const outCtx = outCanvas.getContext('2d');
+    outCtx.drawImage(squareCanvas, 0, 0, TARGET_SIZE, TARGET_SIZE);
+
+    const imageData = outCtx.getImageData(0, 0, TARGET_SIZE, TARGET_SIZE);
     const pixelData = imageData.data;
 
-    // Detect blur on the 224x224 input
+    // Blur detection on resized canvas
     const blurScore = calculateBlur(imageData);
 
-    // Normalize using ImageNet statistics: mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+    // ── Step 5: ImageNet normalisation ─────────────────────────────────────────
     const imageNetMean = [0.485, 0.456, 0.406];
-    const imageNetStd = [0.229, 0.224, 0.225];
+    const imageNetStd  = [0.229, 0.224, 0.225];
 
-    // Prepare CHW (Channels-First) tensor data for ONNX
+    // CHW Float32 tensor: [3, 300, 300]
     const tensorBuffer = new Float32Array(3 * TARGET_SIZE * TARGET_SIZE);
-
     for (let i = 0; i < TARGET_SIZE * TARGET_SIZE; i++) {
-        // Red channel
-        tensorBuffer[i] = ((pixelData[i * 4] / 255.0) - imageNetMean[0]) / imageNetStd[0];
-        // Green channel
-        tensorBuffer[i + (TARGET_SIZE * TARGET_SIZE)] = ((pixelData[i * 4 + 1] / 255.0) - imageNetMean[1]) / imageNetStd[1];
-        // Blue channel
-        tensorBuffer[i + (2 * TARGET_SIZE * TARGET_SIZE)] = ((pixelData[i * 4 + 2] / 255.0) - imageNetMean[2]) / imageNetStd[2];
+        tensorBuffer[i]                          = ((pixelData[i * 4]     / 255.0) - imageNetMean[0]) / imageNetStd[0]; // R
+        tensorBuffer[i + TARGET_SIZE * TARGET_SIZE]     = ((pixelData[i * 4 + 1] / 255.0) - imageNetMean[1]) / imageNetStd[1]; // G
+        tensorBuffer[i + 2 * TARGET_SIZE * TARGET_SIZE] = ((pixelData[i * 4 + 2] / 255.0) - imageNetMean[2]) / imageNetStd[2]; // B
     }
 
-    return {
-        tensorData: tensorBuffer,
-        blurScore,
-        imageData
-    };
+    return { tensorData: tensorBuffer, blurScore, imageData };
 };
 
