@@ -12,7 +12,7 @@ const FORM_FIELDS = [
     { id: 'age', label: 'Age (years)', type: 'number', col: 1 },
     { id: 'diabeticSince', label: 'Diabetic Since (yrs)', type: 'number', col: 1 },
     { id: 'contact', label: 'Mobile Number', type: 'tel', col: 2 },
-    { id: 'abdmInsuranceId', label: 'ABDM Insurance ID (optional)', type: 'text', col: 2 },
+    { id: 'abdmInsuranceId', label: 'Insurance ID (optional)', type: 'text', col: 2 },
 ];
 
 /**
