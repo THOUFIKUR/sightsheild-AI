@@ -11,8 +11,7 @@
 % Outputs:
 % - Turnaround time reduction (14 days -> 4 minutes)
 % - Ophthalmologist review queue reduction (85% workload drop)
-
-clc; clear; close all;
+clc;
 fprintf('=================================================================\n');
 fprintf('📡 SIH26038 - TELEMEDICINE WORKFLOW SIMULATION (100,000 PATIENTS)\n');
 fprintf('=================================================================\n\n');

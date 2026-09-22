@@ -1,4 +1,4 @@
-function [enhancedImage, greenChannel] = adaptive_clahe_retina(imagePath, clipLimit, numTiles)
+function [enhancedImage, greenChannel] = adaptive_clahe_retina(imagePath, clipLimit, numTiles, denoise)
 % ADAPTIVE_CLAHE_RETINA
 % Problem Statement: SIH26038 (MathWorks) - Image Enhancement Module
 % 
@@ -19,6 +19,7 @@ function [enhancedImage, greenChannel] = adaptive_clahe_retina(imagePath, clipLi
 
 if nargin < 2, clipLimit = 0.02; end
 if nargin < 3, numTiles = [8 8]; end
+if nargin < 4, denoise = false; end  % Optional Gaussian denoising (sigma=1.0) before CLAHE
 
 % 1. Read input fundus scan
 rawRGB = imread(imagePath);
@@ -29,15 +30,23 @@ end
 % 2. Extract Green Channel (Maximum microvascular and hemorrhage contrast)
 green = rawRGB(:, :, 2);
 
-% 3. Apply CLAHE using MATLAB Image Processing Toolbox
+% 3. Optional Gaussian denoising (sigma=1.0) to reduce speckle/sensor noise
+%    Satisfies PS requirement: 'illumination normalization, denoising'
+%    Default OFF for backward compatibility. Enable with denoise=true.
+if denoise
+    green = imgaussfilt(green, 1.0);
+    fprintf('[MATLAB Preprocessing] Gaussian denoising applied (sigma=1.0).\n');
+end
+
+% 4. Apply CLAHE using MATLAB Image Processing Toolbox
 enhancedGreen = adapthisteq(green, ...
     'ClipLimit', clipLimit, ...
     'NumTiles', numTiles, ...
     'Distribution', 'rayleigh');
 
-% 4. Re-assemble RGB image
+% 5. Re-assemble RGB image
 enhancedImage = rawRGB;
 enhancedImage(:, :, 2) = enhancedGreen;
 
-fprintf('[MATLAB Preprocessing] Green-Channel CLAHE applied successfully to: %s\n', imagePath);
+fprintf('[MATLAB Preprocessing] Green-Channel CLAHE applied (denoise=%d) to: %s\n', denoise, imagePath);
 end

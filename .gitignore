@@ -48,3 +48,8 @@ backend/models/retina_model_cbam_fp32.onnx
 backend/models/retina_model_trained_fp32.onnx
 backend/models/yolo_lesions_fp32.onnx
 backend/models/yolo_lesions_int8.onnx
+
+# MATLAB autosaves and archives
+*.zip
+*.asv
+matlab/**/*.asv
