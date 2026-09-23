@@ -34,27 +34,36 @@ rawRGB = imread(imagePath);
 if size(rawRGB, 3) == 1, rawRGB = cat(3, rawRGB, rawRGB, rawRGB); end
 [imgH, imgW, ~] = size(rawRGB);
 
-% ─── 2. CLAHE on LAB L-channel ──────────────────────────────────────────────
+% ─── 2. Retinal FOV Mask & CLAHE on L-channel ──────────────────────────────
+retinaMask = rawRGB(:,:,1) > 20 | rawRGB(:,:,2) > 15;
+retinaMask = imerode(retinaMask, strel('disk', 10));
+
 labImg   = rgb2lab(rawRGB);
 lChannel = labImg(:,:,1);
 lNorm    = uint8((lChannel / 100) * 255);
-lEnhanced = adapthisteq(lNorm, 'ClipLimit', 0.03, 'NumTiles', [8 8]);
+lEnhanced = adapthisteq(lNorm, 'ClipLimit', 0.02, 'NumTiles', [8 8]);
 
-% ─── 3. Brightness threshold ─────────────────────────────────────────────────
-threshLevel = graythresh(lEnhanced);
-bwBright    = lEnhanced > round(threshLevel * 255 * 1.05);
+% ─── 3. Adaptive threshold relative to retinal background ───────────────────
+retinaL = double(lEnhanced(retinaMask));
+if isempty(retinaL)
+    exThresh = 240;
+else
+    exThresh = mean(retinaL) + 2.5 * std(retinaL);
+    exThresh = max(exThresh, 205); % Exudates must be distinctly brighter than retina
+end
+bwBright = (double(lEnhanced) > exThresh) & retinaMask;
 
 % ─── 4. Exclude optic disc region ────────────────────────────────────────────
 if ~isempty(discCenter) && ~isempty(discRadius)
     [yy, xx]  = ndgrid(1:imgH, 1:imgW);
-    discMask  = (xx - discCenter(1)).^2 + (yy - discCenter(2)).^2 <= (discRadius * 1.2)^2;
+    discMask  = (xx - discCenter(1)).^2 + (yy - discCenter(2)).^2 <= (discRadius * 1.5)^2;
     bwBright(discMask) = false;
 else
     fprintf('[Exudate Seg] Optic disc not provided — disc region NOT excluded (may cause false positives).\n');
 end
 
 % ─── 5. Morphological cleaning ───────────────────────────────────────────────
-bwClean = bwareaopen(bwBright, 20);
+bwClean = bwareaopen(bwBright, 15);
 seClose = strel('disk', 2);
 bwFinal = imclose(bwClean, seClose);
 

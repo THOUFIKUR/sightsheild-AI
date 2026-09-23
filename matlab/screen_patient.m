@@ -102,8 +102,12 @@ if isfield(res, 'vessels') && isfield(res.vessels, 'vessel_density_pct')
     vesselDens = res.vessels.vessel_density_pct;
 end
 
-% Clinical Decision Logic (ETDRS 4-2-1 Rule)
-if maCount >= 20 || hmTotal >= 5 || exArea > 10000
+% Clinical Decision Logic (ETDRS 4-2-1 Rule & Quality Gate)
+if isfield(res, 'quality') && isfield(res.quality, 'gradeable') && ~res.quality.gradeable
+    drGrade = 'UNGRADEABLE / REJECTED (Quality Failure)';
+    referral = sprintf('RECAPTURE REQUIRED — %s', res.quality.feedback);
+    riskColor = 'ORANGE';
+elseif maCount >= 20 || hmTotal >= 5 || exArea > 10000
     drGrade = 'Level 3 / 4 (Severe NPDR / High-Risk PDR)';
     referral = 'URGENT REFERRAL — Specialist review within 48-72 hours';
     riskColor = 'RED';

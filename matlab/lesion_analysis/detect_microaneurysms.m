@@ -59,27 +59,39 @@ rawRGB = imread(imagePath);
 if size(rawRGB, 3) == 1, rawRGB = cat(3, rawRGB, rawRGB, rawRGB); end
 [imgH, imgW, ~] = size(rawRGB);
 
+% Retinal FOV mask to avoid black borders and perimeter artifacts
+retinaMask = rawRGB(:,:,1) > 20 | rawRGB(:,:,2) > 15;
+retinaMask = imerode(retinaMask, strel('disk', 15));
+
 % Green channel: maximum haemoglobin absorption → best MA contrast
 green = rawRGB(:, :, 2);
 
 % CLAHE to equalize illumination
 enhanced = adapthisteq(green, 'ClipLimit', 0.02, 'NumTiles', [8 8]);
 
-% ─── 2. Top-hat morphological transform ─────────────────────────────────────
-diskSE = strel('disk', 8);
-topHat = imtophat(enhanced, diskSE);
+% ─── 2. Bottom-hat / Top-hat on green channel ───────────────────────────────
+% Microaneurysms are small dark spots on the green channel
+diskSE = strel('disk', 6);
+botHat = imbothat(enhanced, diskSE);
+botHat(~retinaMask) = 0;
 
-% ─── 3. Adaptive threshold ──────────────────────────────────────────────────
-threshLevel = graythresh(topHat);
-bwRaw       = topHat > (threshLevel * 255);
+% ─── 3. Adaptive threshold inside retinal FOV ────────────────────────────────
+retinaVals = double(botHat(retinaMask));
+if isempty(retinaVals)
+    maThresh = 30;
+else
+    maThresh = mean(retinaVals) + 2.8 * std(retinaVals);
+    maThresh = max(maThresh, 20); % Minimum contrast to prevent noise triggering
+end
+bwRaw = (double(botHat) > maThresh) & retinaMask;
 
 % ─── 4. Connected component filtering (area + circularity) ──────────────────
-bwFiltered = bwareaopen(bwRaw, 5);
+bwFiltered = bwareaopen(bwRaw, 3);
 props = regionprops(bwFiltered, 'Centroid', 'Area', 'Eccentricity', 'BoundingBox');
 
 validIdx = false(length(props), 1);
 for k = 1:length(props)
-    if props(k).Area <= 200 && props(k).Eccentricity < 0.85
+    if props(k).Area >= 3 && props(k).Area <= 100 && props(k).Eccentricity < 0.85
         validIdx(k) = true;
     end
 end

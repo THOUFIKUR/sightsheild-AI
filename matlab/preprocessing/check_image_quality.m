@@ -10,8 +10,8 @@ function [isGradeable, metrics, feedback] = check_image_quality(imagePath, focus
 % Syntax:
 %   [isGradeable, metrics, feedback] = check_image_quality(imagePath)
 
-if nargin < 2, focusThresh = 80.0; end
-if nargin < 3, entropyThresh = 4.0; end
+if nargin < 2, focusThresh = 20.0; end
+if nargin < 3, entropyThresh = 3.5; end
 
 % Quality score normalisation bounds (empirically set for fundus images)
 SHARPNESS_MAX = 500.0;   % Score >= 500 considered excellent focus

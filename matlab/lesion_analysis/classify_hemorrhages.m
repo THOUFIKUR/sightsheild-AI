@@ -30,19 +30,30 @@ fprintf('[Hemorrhage] STATUS: Prototype — not clinically validated.\n');
 rawRGB = imread(imagePath);
 if size(rawRGB, 3) == 1, rawRGB = cat(3, rawRGB, rawRGB, rawRGB); end
 
+% Retinal FOV mask
+retinaMask = rawRGB(:,:,1) > 20 | rawRGB(:,:,2) > 15;
+retinaMask = imerode(retinaMask, strel('disk', 15));
+
 green    = rawRGB(:, :, 2);
 enhanced = adapthisteq(green, 'ClipLimit', 0.02, 'NumTiles', [8 8]);
 
 % ─── 2. Bottom-hat transform ─────────────────────────────────────────────────
-diskSE    = strel('disk', 15);
+diskSE    = strel('disk', 12);
 bottomHat = imbothat(enhanced, diskSE);
+bottomHat(~retinaMask) = 0;
 
-% ─── 3. Adaptive threshold ───────────────────────────────────────────────────
-threshLevel = graythresh(bottomHat);
-bwRaw = bottomHat > round(threshLevel * 255 * 0.9);
+% ─── 3. Adaptive threshold inside retinal FOV ────────────────────────────────
+retinaVals = double(bottomHat(retinaMask));
+if isempty(retinaVals)
+    hmThresh = 35;
+else
+    hmThresh = mean(retinaVals) + 2.8 * std(retinaVals);
+    hmThresh = max(hmThresh, 25);
+end
+bwRaw = (double(bottomHat) > hmThresh) & retinaMask;
 
 % ─── 4. Remove noise ─────────────────────────────────────────────────────────
-bwFiltered = bwareaopen(bwRaw, 30);
+bwFiltered = bwareaopen(bwRaw, 15);
 
 % ─── 5. Shape-based classification ──────────────────────────────────────────
 props = regionprops(bwFiltered, 'Centroid', 'Area', 'Eccentricity', ...
@@ -54,9 +65,9 @@ flameIdx = false(length(props), 1);
 for k = 1:length(props)
     a = props(k).Area;
     e = props(k).Eccentricity;
-    if a >= 30 && a < 300 && e < 0.75
+    if a >= 15 && a < 150 && e < 0.80
         dotIdx(k) = true;
-    elseif a >= 200 && a <= 8000
+    elseif a >= 150 && a <= 3000
         flameIdx(k) = true;
     end
 end
