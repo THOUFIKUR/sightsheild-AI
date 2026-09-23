@@ -507,7 +507,25 @@ async def run_inference(
         "_note": "RetinaScan AI — FP32 EfficientNet-B3+CBAM + ETDRS Clinical Arbitration | heatmap_method field indicates Grad-CAM vs heuristic fallback",
     }
 
-    return response
+    return _sanitize(response)
+
+
+def _sanitize(obj):
+    """Recursively convert numpy scalar types to Python natives for JSON serialization."""
+    import numpy as np
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize(v) for v in obj]
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
 
 
 # ─── Optional model warm-up ───────────────────────────────────────────────────

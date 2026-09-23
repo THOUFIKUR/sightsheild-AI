@@ -5,6 +5,11 @@ RetinaScan AI — FastAPI Backend Entry Point
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import sys, pathlib
+backend_dir = str(pathlib.Path(__file__).resolve().parent)
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
 from routes import inference, report, abdm_mock, tts
 
 app = FastAPI(
@@ -25,6 +30,7 @@ app.add_middleware(
 
 # Register routers
 app.include_router(inference.router, prefix="/api/inference", tags=["Inference"])
+app.include_router(inference.router, prefix="/inference", include_in_schema=False)
 app.include_router(report.router, prefix="/api/report", tags=["Report"])
 app.include_router(abdm_mock.router, prefix="/api/abdm", tags=["ABDM"])
 app.include_router(tts.router)
