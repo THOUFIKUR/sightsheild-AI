@@ -108,7 +108,7 @@ if isfield(analysisResult, 'microaneurysms')
     ma = analysisResult.microaneurysms;
     if isfield(ma, 'candidate_centroids') && ~isempty(ma.candidate_centroids)
         scatter(ma.candidate_centroids(:,1), ma.candidate_centroids(:,2), ...
-            30, 'g', 'filled', 'MarkerEdgeColor', 'darkgreen');
+            30, 'g', 'filled', 'MarkerEdgeColor', [0, 0.5, 0]);
     end
 end
 

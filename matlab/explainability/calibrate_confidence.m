@@ -107,22 +107,6 @@ else
 end
 
 % ─── 4. Compute ECE (Expected Calibration Error) ─────────────────────────
-% Uses M=10 confidence bins on the max-class probability
-function ece = compute_ece(probs, labels, M)
-    [maxProbs, predClasses] = max(probs, [], 2);
-    predClasses = predClasses - 1;  % convert to 0-indexed
-    binEdges = linspace(0, 1, M+1);
-    ece = 0;
-    total = numel(labels);
-    for b = 1:M
-        inBin = maxProbs >= binEdges(b) & maxProbs < binEdges(b+1);
-        if sum(inBin) == 0, continue; end
-        binAcc  = mean(predClasses(inBin) == labels(inBin));
-        binConf = mean(maxProbs(inBin));
-        ece     = ece + (sum(inBin)/total) * abs(binAcc - binConf);
-    end
-end
-
 eceBefore = compute_ece(softmaxProbs, trueLabels, 10);
 eceAfter  = compute_ece(calibratedProbs, trueLabels, 10);
 
@@ -137,14 +121,14 @@ brierAfter  = mean(sum((calibratedProbs - oneHot).^2, 2));
 
 % ─── 6. Determine validation status ──────────────────────────────────────
 if usingSyntheticData
-    validationNote = 'CALIBRATION NOT VALIDATED — synthetic demonstration data used. ' + ...
-        'Run with real model predictions and ground-truth labels for valid results.';
+    validationNote = ['CALIBRATION NOT VALIDATED — synthetic demonstration data used. ' ...
+        'Run with real model predictions and ground-truth labels for valid results.'];
 elseif N < 20
     validationNote = sprintf(['CALIBRATION NOT VALIDATED — INSUFFICIENT DATA (N=%d). ' ...
         'Minimum ~200 held-out samples required for reliable temperature estimation.'], N);
 else
-    validationNote = sprintf('Calibration performed on N=%d samples. ' + ...
-        'Results are indicative. Independent validation set recommended.', N);
+    validationNote = sprintf(['Calibration performed on N=%d samples. ' ...
+        'Results are indicative. Independent validation set recommended.'], N);
 end
 
 % ─── 7. Build output struct ───────────────────────────────────────────────
@@ -211,4 +195,20 @@ for b = 1:numel(edges)-1
     confOut(b) = mean(mp(inB));
 end
 end
+
+function ece = compute_ece(probs, labels, M)
+[maxProbs, predClasses] = max(probs, [], 2);
+predClasses = predClasses - 1;
+binEdges = linspace(0, 1, M+1);
+ece = 0;
+total = numel(labels);
+for b = 1:M
+    inBin = maxProbs >= binEdges(b) & maxProbs < binEdges(b+1);
+    if sum(inBin) == 0, continue; end
+    binAcc  = mean(predClasses(inBin) == labels(inBin));
+    binConf = mean(maxProbs(inBin));
+    ece     = ece + (sum(inBin)/total) * abs(binAcc - binConf);
+end
+end
+
 
