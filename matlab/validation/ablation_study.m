@@ -37,7 +37,7 @@ try
 catch loadErr
     msg = sprintf('DATA MISSING — NOT RUN\nReason: %s', loadErr.message);
     fprintf('%s\n', msg);
-    _append_log(logFile, 'ablation_study', ts, msg);
+    append_log(logFile, 'ablation_study', ts, msg);
     return;
 end
 
@@ -48,7 +48,7 @@ fprintf('Test set: %d images.\n', n);
 if ~isfile(onnxPath)
     msg = sprintf('DATA MISSING — NOT RUN\nONNX not found: %s', onnxPath);
     fprintf('%s\n', msg);
-    _append_log(logFile, 'ablation_study', ts, msg);
+    append_log(logFile, 'ablation_study', ts, msg);
     return;
 end
 
@@ -56,7 +56,7 @@ hasDLT = ~isempty(which('importONNXNetwork')) || ~isempty(which('importNetworkFr
 if ~hasDLT
     msg = 'MATLAB Deep Learning Toolbox ONNX import not available. Ablation study CANNOT run in MATLAB.';
     fprintf('%s\n', msg);
-    _append_log(logFile, 'ablation_study', ts, msg);
+    append_log(logFile, 'ablation_study', ts, msg);
     return;
 end
 
@@ -71,7 +71,7 @@ try
 catch importErr
     msg = sprintf('ONNX IMPORT FAILED — ablation study CANNOT run in MATLAB.\nError: %s\n\nDo NOT claim MATLAB performed this ablation.', importErr.message);
     fprintf('%s\n', msg);
-    _append_log(logFile, 'ablation_study', ts, msg);
+    append_log(logFile, 'ablation_study', ts, msg);
     return;
 end
 
@@ -79,7 +79,7 @@ end
 fprintf('\n--- BASELINE: EfficientNet-B3 classifier only (no YOLO, no arbitration) ---\n');
 baseline_preds = nan(n,1);
 for i = 1:n
-    baseline_preds(i) = _infer_grade_onnx(net, dataset.images{i});
+    baseline_preds(i) = infer_grade_onnx(net, dataset.images{i});
     if mod(i,10)==0, fprintf('  Baseline %d/%d\n', i, n); end
 end
 
@@ -87,11 +87,11 @@ end
 fprintf('\n--- INTEGRATED: Classifier + YOLO + ETDRS 4-2-1 arbitration ---\n');
 integrated_preds = nan(n,1);
 for i = 1:n
-    nn_grade = _infer_grade_onnx(net, dataset.images{i});
+    nn_grade = infer_grade_onnx(net, dataset.images{i});
     % YOLO arbitration: call Python inference endpoint or fall back to nn_grade
     % (YOLO ONNX import via MATLAB is not possible for OPSET 22 — this step
     %  calls the backend API if available, otherwise skips arbitration)
-    arb_grade = _apply_clinical_arbitration(dataset.images{i}, nn_grade, yoloPath);
+    arb_grade = apply_clinical_arbitration(dataset.images{i}, nn_grade, yoloPath);
     integrated_preds(i) = arb_grade;
     if mod(i,10)==0, fprintf('  Integrated %d/%d\n', i, n); end
 end
@@ -104,7 +104,7 @@ n_valid  = sum(valid);
 if n_valid == 0
     msg = 'NO VALID PREDICTIONS — ablation study could not be completed.';
     fprintf('%s\n', msg);
-    _append_log(logFile, 'ablation_study', ts, msg);
+    append_log(logFile, 'ablation_study', ts, msg);
     return;
 end
 
@@ -112,10 +112,10 @@ yb = labels_v(valid);
 pb = baseline_preds(valid);
 pi = integrated_preds(valid);
 
-[sens_b_base, spec_b_base, ppv_base, npv_base, cm_base] = _binary_metrics(yb, pb);
-[sens_b_int,  spec_b_int,  ppv_int,  npv_int,  cm_int]  = _binary_metrics(yb, pi);
-qwk_base = _compute_qwk(yb, pb, 5);
-qwk_int  = _compute_qwk(yb, pi, 5);
+[sens_b_base, spec_b_base, ppv_base, npv_base, cm_base] = compute_binary_metrics(yb, pb);
+[sens_b_int,  spec_b_int,  ppv_int,  npv_int,  cm_int]  = compute_binary_metrics(yb, pi);
+qwk_base = compute_qwk(yb, pb, 5);
+qwk_int  = compute_qwk(yb, pi, 5);
 
 % ─── Report ──────────────────────────────────────────────────────────────────
 fprintf('\n=== ABLATION STUDY RESULTS (IDRiD test, N=%d) ===\n', n_valid);
@@ -152,12 +152,12 @@ logMsg = sprintf(['IDRiD test N=%d\n\nBaseline (ONNX only): QWK=%.4f sens=%.4f s
     qwk_int, sens_b_int, spec_b_int, ...
     delta_qwk, delta_sens, delta_spec, verdict, ...
     mat2str(cm_base), mat2str(cm_int));
-_append_log(logFile, 'ablation_study', ts, logMsg);
+append_log(logFile, 'ablation_study', ts, logMsg);
 fprintf('[ablation_study] Results appended to: %s\n', logFile);
 end
 
 % ─── Helpers ────────────────────────────────────────────────────────────────
-function grade = _infer_grade_onnx(net, imgPath)
+function grade = infer_grade_onnx(net, imgPath)
 grade = NaN;
 try
     raw = imread(imgPath);
@@ -186,7 +186,7 @@ try
 catch; end
 end
 
-function arb_grade = _apply_clinical_arbitration(imgPath, nn_grade, yoloPath)
+function arb_grade = apply_clinical_arbitration(imgPath, nn_grade, yoloPath)
 % YOLO ONNX is OPSET 22 — not importable in MATLAB.
 % If Python backend is reachable, query it. Otherwise, use classifier grade only.
 arb_grade = nn_grade;
@@ -199,7 +199,7 @@ try
 catch; end
 end
 
-function [sens, spec, ppv, npv, cm] = _binary_metrics(y_true, y_pred)
+function [sens, spec, ppv, npv, cm] = compute_binary_metrics(y_true, y_pred)
 numC=5; cm=zeros(numC);
 for k=1:numel(y_true)
     r=y_true(k)+1; c=y_pred(k)+1;
@@ -212,7 +212,7 @@ sens=tp/max(tp+fn,1); spec=tn/max(tn+fp,1);
 ppv=tp/max(tp+fp,1);  npv=tn/max(tn+fn,1);
 end
 
-function qwk = _compute_qwk(y_true, y_pred, numC)
+function qwk = compute_qwk(y_true, y_pred, numC)
 W=zeros(numC);
 for i=0:numC-1, for j=0:numC-1
     W(i+1,j+1)=((i-j)^2)/((numC-1)^2); end; end
@@ -226,7 +226,7 @@ ht=sum(O,2)/n; hp=sum(O,1)'/n; E=ht*hp';
 qwk=1-sum(sum(W.*O))/sum(sum(W.*E.*n));
 end
 
-function _append_log(logFile, section, ts, content)
+function append_log(logFile, section, ts, content)
 try
     fid=fopen(logFile,'a');
     if fid==-1, return; end

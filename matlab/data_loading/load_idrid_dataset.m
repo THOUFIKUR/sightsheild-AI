@@ -143,11 +143,11 @@ for i = 1:n
     end
 
     % Mask paths (set to '' if mask file not present — caller must check)
-    masksMa{i} = _find_mask(maskBaseDir, '1. Microaneurysms', baseId, '_MA');
-    masksHe{i} = _find_mask(maskBaseDir, '2. Haemorrhages',   baseId, '_HE');
-    masksEx{i} = _find_mask(maskBaseDir, '3. Hard Exudates',  baseId, '_EX');
-    masksSe{i} = _find_mask(maskBaseDir, '4. Soft Exudates',  baseId, '_SE');
-    masksOd{i} = _find_mask(maskBaseDir, '5. Optic Disc',     baseId, '_OD');
+    masksMa{i} = find_mask_file(maskBaseDir, '1. Microaneurysms', baseId, '_MA');
+    masksHe{i} = find_mask_file(maskBaseDir, '2. Haemorrhages',   baseId, '_HE');
+    masksEx{i} = find_mask_file(maskBaseDir, '3. Hard Exudates',  baseId, '_EX');
+    masksSe{i} = find_mask_file(maskBaseDir, '4. Soft Exudates',  baseId, '_SE');
+    masksOd{i} = find_mask_file(maskBaseDir, '5. Optic Disc',     baseId, '_OD');
 end
 
 hasMasks = any(~cellfun(@isempty, masksMa)) || any(~cellfun(@isempty, masksHe)) || ...
@@ -308,7 +308,7 @@ fprintf('[IDRiD Loader] Dataset ready: %d images, %d with valid labels.\n', n, s
 end
 
 % ─── Helper: find mask file path ───────────────────────────────────────────
-function p = _find_mask(maskBaseDir, subDir, imageId, suffix)
+function p = find_mask_file(maskBaseDir, subDir, imageId, suffix)
     p = '';
     candidates = {
         fullfile(maskBaseDir, subDir, [imageId suffix '.tif']);

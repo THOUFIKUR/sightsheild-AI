@@ -32,7 +32,7 @@ onnxPath = fullfile(thisDir, '..', '..', 'backend', 'models', 'retina_model.onnx
 if ~isfile(onnxPath)
     msg = sprintf('DATA MISSING — NOT RUN\nONNX model not found: %s', onnxPath);
     fprintf('%s\n', msg);
-    _append_log(logFile, 'evaluate_on_real_data', ts, msg);
+    append_log(logFile, 'evaluate_on_real_data', ts, msg);
     return;
 end
 
@@ -48,7 +48,7 @@ fprintf('Modified: %s\n', datestr(d.datenum));
 
 % Check MATLAB Deep Learning Toolbox ONNX import availability
 hasDLT = ~isempty(which('importONNXNetwork')) || ~isempty(which('importNetworkFromONNX'));
-fprintf('MATLAB Deep Learning Toolbox ONNX import: %s\n', _tf(hasDLT));
+fprintf('MATLAB Deep Learning Toolbox ONNX import: %s\n', bool_to_str(hasDLT));
 
 onnxCompatible = false;
 net = [];
@@ -72,19 +72,19 @@ if hasDLT
         onnxCompatible = false;
         compatMsg = sprintf('ONNX IMPORT FAILED\nError: %s\n\nMATLAB Deep Learning Toolbox could not import this model.\nPossible causes:\n  - OPSET 18 operators not supported in this MATLAB version\n  - Custom CBAM attention layers not in ONNX operator registry\n  - Unsupported dynamic shapes\n\nThe MATLAB evaluation CANNOT be performed for this model.\nDo NOT claim MATLAB performed this evaluation.\nUse the Python ONNX runtime (backend/routes/inference.py) for production inference.', importErr.message);
         fprintf('\n%s\n', compatMsg);
-        _append_log(logFile, 'evaluate_on_real_data ONNX_COMPAT_AUDIT', ts, compatMsg);
+        append_log(logFile, 'evaluate_on_real_data ONNX_COMPAT_AUDIT', ts, compatMsg);
         fprintf('[evaluate_on_real_data] STOPPING — ONNX import incompatibility. Results appended to log.\n');
         return;
     end
 else
     compatMsg = 'MATLAB Deep Learning Toolbox not found. ONNX import unavailable. MATLAB evaluation CANNOT be performed. This evaluation requires the Deep Learning Toolbox with ONNX support.';
     fprintf('%s\n', compatMsg);
-    _append_log(logFile, 'evaluate_on_real_data ONNX_COMPAT_AUDIT', ts, compatMsg);
+    append_log(logFile, 'evaluate_on_real_data ONNX_COMPAT_AUDIT', ts, compatMsg);
     return;
 end
 
 % ─── Define inference function ───────────────────────────────────────────────
-function grade = _infer_grade(net, imgPath)
+function grade = infer_grade(net, imgPath)
     raw = imread(imgPath);
     if size(raw,3)==1, raw=cat(3,raw,raw,raw); end
     % Black-border crop
@@ -133,14 +133,14 @@ if ~isempty(idridRoot) && isfolder(idridRoot)
     datasets{end+1} = struct('name','IDRiD','root',idridRoot,'type','idrid');
 else
     fprintf('IDRiD: DATA MISSING — NOT RUN (%s)\n', idridRoot);
-    _append_log(logFile,'evaluate_on_real_data IDRiD',ts,'DATA MISSING — NOT RUN');
+    append_log(logFile,'evaluate_on_real_data IDRiD',ts,'DATA MISSING — NOT RUN');
 end
 
 if ~isempty(messidor2Root) && isfolder(messidor2Root)
     datasets{end+1} = struct('name','Messidor-2','root',messidor2Root,'type','messidor2');
 else
     fprintf('Messidor-2: DATA MISSING — NOT RUN (%s)\n', messidor2Root);
-    _append_log(logFile,'evaluate_on_real_data Messidor2',ts,'DATA MISSING — NOT RUN');
+    append_log(logFile,'evaluate_on_real_data Messidor2',ts,'DATA MISSING — NOT RUN');
 end
 
 allResults = {};
@@ -152,12 +152,12 @@ for di = 1:numel(datasets)
         if strcmp(ds.type,'idrid')
             [dataset, ~] = load_idrid_dataset(ds.root, 'test');
         else
-            dataset = _load_messidor2(ds.root);
+            dataset = load_messidor2(ds.root);
         end
     catch loadErr
         msg = sprintf('DATA MISSING — NOT RUN\nDataset: %s\nReason: %s', ds.name, loadErr.message);
         fprintf('%s\n', msg);
-        _append_log(logFile, ['evaluate_on_real_data ' ds.name], ts, msg);
+        append_log(logFile, ['evaluate_on_real_data ' ds.name], ts, msg);
         continue;
     end
 
@@ -167,7 +167,7 @@ for di = 1:numel(datasets)
     labels   = dataset.labels;
     preds    = nan(n,1);
     for i = 1:n
-        preds(i) = _infer_grade(net, dataset.images{i});
+        preds(i) = infer_grade(net, dataset.images{i});
         if mod(i,10)==0, fprintf('  %d/%d...\n', i, n); end
     end
 
@@ -192,7 +192,7 @@ for di = 1:numel(datasets)
     end
 
     % QWK
-    qwk_val = _compute_qwk(labels_v, preds_v, numClasses);
+    qwk_val = compute_qwk(labels_v, preds_v, numClasses);
 
     % Per-class sensitivity / specificity
     pc_sens = nan(numClasses,1); pc_spec = nan(numClasses,1);
@@ -236,7 +236,7 @@ for di = 1:numel(datasets)
 
     logMsg = sprintf('%s | N=%d | QWK=%.4f | Binary sens=%.4f spec=%.4f ppv=%.4f npv=%.4f\nConfusion Matrix:\n%s', ...
         ds.name, sum(valid), qwk_val, sens_b, spec_b, ppv_b, npv_b, mat2str(cm));
-    _append_log(logFile, ['evaluate_on_real_data ' ds.name], ts, logMsg);
+    append_log(logFile, ['evaluate_on_real_data ' ds.name], ts, logMsg);
 end
 
 if numel(allResults) == 2
@@ -255,7 +255,7 @@ fprintf('[evaluate_on_real_data] Complete. Results in: %s\n', logFile);
 end
 
 % ─── QWK computation ────────────────────────────────────────────────────────
-function qwk = _compute_qwk(y_true, y_pred, numClasses)
+function qwk = compute_qwk(y_true, y_pred, numClasses)
 n = numel(y_true);
 W = zeros(numClasses);
 for i=0:numClasses-1
@@ -277,7 +277,7 @@ qwk = 1 - sum(sum(W.*O)) / sum(sum(W.*E.*n));
 end
 
 % ─── Messidor-2 loader (minimal — user must populate directory) ─────────────
-function dataset = _load_messidor2(root)
+function dataset = load_messidor2(root)
 imgFiles = [dir(fullfile(root,'*.jpg')); dir(fullfile(root,'*.png')); dir(fullfile(root,'*.tif'))];
 if isempty(imgFiles)
     error('DATA MISSING: No images found in Messidor-2 root: %s\nExpected *.jpg fundus images with grade CSV.', root);
@@ -307,7 +307,7 @@ for i=1:n
 end
 end
 
-function _append_log(logFile, section, ts, content)
+function append_log(logFile, section, ts, content)
 try
     fid = fopen(logFile,'a');
     if fid==-1, return; end
@@ -316,6 +316,6 @@ try
 catch; end
 end
 
-function s = _tf(v)
+function s = bool_to_str(v)
 if v, s='YES'; else, s='NO'; end
 end

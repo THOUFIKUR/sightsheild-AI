@@ -190,13 +190,13 @@ if ma.candidate_count == 0
 elseif ~isempty(idridMaskDir) && isfolder(idridMaskDir)
     fprintf('[MA Detection] IDRiD mask directory found. Attempting SVM training/loading.\n');
     try
-        svm = _train_or_load_ma_svm(enhanced, idridMaskDir, modelSavePath);
+        svm = train_or_load_ma_svm(enhanced, idridMaskDir, modelSavePath);
         if ~isempty(svm)
             % Extract feature patch for each candidate and predict
             patchSize = 9;
             keepIdx   = false(ma.candidate_count, 1);
             for k = 1:ma.candidate_count
-                feat = _extract_ma_patch_features(enhanced, ...
+                feat = extract_ma_patch_features(enhanced, ...
                     round(ma.candidate_centroids_subpixel(k,1)), ...
                     round(ma.candidate_centroids_subpixel(k,2)), patchSize);
                 if ~any(isnan(feat))
@@ -264,7 +264,7 @@ end
 
 
 % ─── Helper: Train or load MA SVM from IDRiD masks ─────────────────────────
-function svm = _train_or_load_ma_svm(enhancedImg, maskDir, modelSavePath)
+function svm = train_or_load_ma_svm(enhancedImg, maskDir, modelSavePath)
 % Attempts to load a pre-trained SVM from modelSavePath.
 % If not found, trains on all MA mask images in maskDir.
 % Returns [] if insufficient data.
@@ -329,7 +329,7 @@ for mi = 1:numel(maskFiles)
         for pp = 1:numel(posProps)
             cx = round(posProps(pp).Centroid(1));
             cy = round(posProps(pp).Centroid(2));
-            feat = _extract_ma_patch_features(eImg, cx, cy, patchSize);
+            feat = extract_ma_patch_features(eImg, cx, cy, patchSize);
             if ~any(isnan(feat))
                 posFeats = [posFeats; feat]; %#ok<AGROW>
             end
@@ -343,7 +343,7 @@ for mi = 1:numel(maskFiles)
             rx = randi([halfP+1, imgW2-halfP]);
             ry = randi([halfP+1, imgH2-halfP]);
             if ~any(any(maskBin(ry-halfP:ry+halfP, rx-halfP:rx+halfP)))
-                feat = _extract_ma_patch_features(eImg, rx, ry, patchSize);
+                feat = extract_ma_patch_features(eImg, rx, ry, patchSize);
                 if ~any(isnan(feat))
                     negFeats = [negFeats; feat]; %#ok<AGROW>
                 end
@@ -388,7 +388,7 @@ end
 
 
 % ─── Helper: extract feature vector from patch ────────────────────────────
-function feat = _extract_ma_patch_features(enhancedImg, cx, cy, patchSize)
+function feat = extract_ma_patch_features(enhancedImg, cx, cy, patchSize)
 % Returns a feature vector for a candidate patch.
 % Features: mean intensity, std, top-hat max, 9-bin histogram, circularity proxy.
 halfP = floor(patchSize / 2);

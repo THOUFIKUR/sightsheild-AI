@@ -53,17 +53,17 @@ meta.dr_severity_grade     = screeningResult.grade;
 meta.dr_severity_label     = screeningResult.grade_label;
 meta.confidence_score      = screeningResult.confidence;
 meta.is_referable          = screeningResult.grade >= 2;
-meta.gradcam_overlay_path  = _getfield(screeningResult, 'gradcam_path', '');
-meta.gradcam_status        = _getfield(screeningResult, 'gradcam_status', 'UNKNOWN');
-meta.od_center             = _getfield(screeningResult, 'od_center',    []);
-meta.fovea_center          = _getfield(screeningResult, 'fovea_center', []);
+meta.gradcam_overlay_path  = get_safe_field(screeningResult, 'gradcam_path', '');
+meta.gradcam_status        = get_safe_field(screeningResult, 'gradcam_status', 'UNKNOWN');
+meta.od_center             = get_safe_field(screeningResult, 'od_center',    []);
+meta.fovea_center          = get_safe_field(screeningResult, 'fovea_center', []);
 
 % Lesion findings
-lf = _getfield(screeningResult, 'lesion_findings', struct());
-meta.lesion_microaneurysms = _getfield(lf, 'microaneurysms', NaN);
-meta.lesion_hemorrhages    = _getfield(lf, 'hemorrhages',    NaN);
-meta.lesion_hard_exudates  = _getfield(lf, 'hard_exudates',  NaN);
-meta.clinical_rule_applied = _getfield(lf, 'clinical_rule_applied', 'none');
+lf = get_safe_field(screeningResult, 'lesion_findings', struct());
+meta.lesion_microaneurysms = get_safe_field(lf, 'microaneurysms', NaN);
+meta.lesion_hemorrhages    = get_safe_field(lf, 'hemorrhages',    NaN);
+meta.lesion_hard_exudates  = get_safe_field(lf, 'hard_exudates',  NaN);
+meta.clinical_rule_applied = get_safe_field(lf, 'clinical_rule_applied', 'none');
 
 meta.system_version = 'RetinaScan AI SIH26038';
 meta.schema         = 'DICOM-SR-style key-value (SIH26038 custom)';
@@ -149,7 +149,7 @@ fprintf('[export_structured_report] TOOLBOX STATUS: %s\n', toolboxStatus);
 end
 
 % ─── Helper ────────────────────────────────────────────────────────────────
-function val = _getfield(s, field, default)
+function val = get_safe_field(s, field, default)
 if isfield(s, field)
     val = s.(field);
 else

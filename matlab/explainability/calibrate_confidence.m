@@ -175,18 +175,6 @@ try
     binEdges = linspace(0, 1, M+1);
     binCenters = 0.5 * (binEdges(1:end-1) + binEdges(2:end));
 
-    function [accOut, confOut] = bin_stats(probs, labels, edges)
-        [mp, pc] = max(probs, [], 2); pc = pc-1;
-        accOut = zeros(1, numel(edges)-1);
-        confOut = zeros(1, numel(edges)-1);
-        for b = 1:numel(edges)-1
-            inB = mp >= edges(b) & mp < edges(b+1);
-            if sum(inB) == 0, continue; end
-            accOut(b)  = mean(pc(inB) == labels(inB));
-            confOut(b) = mean(mp(inB));
-        end
-    end
-
     [accB, ~] = bin_stats(softmaxProbs,   trueLabels, binEdges);
     [accA, ~] = bin_stats(calibratedProbs, trueLabels, binEdges);
 
@@ -204,10 +192,23 @@ try
     saveas(fig, reliabilityPath);
     close(fig);
     cal.reliability_diagram_path = reliabilityPath;
-    fprintf('[Calibration] Reliability diagram saved: %s\\n', reliabilityPath);
+    fprintf('[Calibration] Reliability diagram saved: %s\n', reliabilityPath);
 catch plotErr
-    fprintf('[Calibration] Could not save diagram: %s\\n', plotErr.message);
+    fprintf('[Calibration] Could not save diagram: %s\n', plotErr.message);
     cal.reliability_diagram_path = '';
 end
 
 end
+
+function [accOut, confOut] = bin_stats(probs, labels, edges)
+[mp, pc] = max(probs, [], 2); pc = pc-1;
+accOut = zeros(1, numel(edges)-1);
+confOut = zeros(1, numel(edges)-1);
+for b = 1:numel(edges)-1
+    inB = mp >= edges(b) & mp < edges(b+1);
+    if sum(inB) == 0, continue; end
+    accOut(b)  = mean(pc(inB) == labels(inB));
+    confOut(b) = mean(mp(inB));
+end
+end
+

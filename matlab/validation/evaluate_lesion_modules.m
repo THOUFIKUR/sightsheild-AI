@@ -36,14 +36,14 @@ try
 catch loadErr
     msg = sprintf('DATA MISSING — NOT RUN\nReason: %s\n', loadErr.message);
     fprintf('%s\n', msg);
-    _append_log(logFile, 'evaluate_lesion_modules', ts, msg);
+    append_log(logFile, 'evaluate_lesion_modules', ts, msg);
     return;
 end
 
 if ~dataset.has_masks
     msg = 'DATA MISSING — NOT RUN\nReason: IDRiD lesion segmentation masks not found in dataset directory.\nExpected structure: A. Segmentation/2. All Segmentation Groundtruths/...';
     fprintf('%s\n', msg);
-    _append_log(logFile, 'evaluate_lesion_modules', ts, msg);
+    append_log(logFile, 'evaluate_lesion_modules', ts, msg);
     return;
 end
 
@@ -71,8 +71,8 @@ for i = 1:n
         gtBin = gtMask > 127;
         % Convert MA centroids to binary mask (dilated dots for overlap)
         [imgH, imgW, ~] = size(imread(imgPath));
-        predMask = _centroids_to_mask(maResult.candidate_centroids, imgH, imgW, 5);
-        [dice, iou, sens, spec] = _compute_metrics(predMask, gtBin);
+        predMask = centroids_to_mask(maResult.candidate_centroids, imgH, imgW, 5);
+        [dice, iou, sens, spec] = compute_metrics(predMask, gtBin);
         diceAccum.MA(end+1) = dice;
         iouAccum.MA(end+1)  = iou;
         sensAccum.MA(end+1) = sens;
@@ -87,7 +87,7 @@ for i = 1:n
         if size(gtMask,3)>1, gtMask=gtMask(:,:,1); end
         gtBin = gtMask > 127;
         predMask = imresize(exResult.binary_mask, size(gtBin), 'nearest');
-        [dice, iou, sens, spec] = _compute_metrics(predMask, gtBin);
+        [dice, iou, sens, spec] = compute_metrics(predMask, gtBin);
         diceAccum.EX(end+1) = dice;
         iouAccum.EX(end+1)  = iou;
         sensAccum.EX(end+1) = sens;
@@ -102,8 +102,8 @@ for i = 1:n
         if size(gtMask,3)>1, gtMask=gtMask(:,:,1); end
         gtBin = gtMask > 127;
         [imgH2, imgW2, ~] = size(imread(imgPath));
-        predMask = _bboxes_to_mask(hmResult.bounding_boxes, imgH2, imgW2);
-        [dice, iou, sens, spec] = _compute_metrics(predMask, gtBin);
+        predMask = bboxes_to_mask(hmResult.bounding_boxes, imgH2, imgW2);
+        [dice, iou, sens, spec] = compute_metrics(predMask, gtBin);
         diceAccum.HE(end+1) = dice;
         iouAccum.HE(end+1)  = iou;
         sensAccum.HE(end+1) = sens;
@@ -138,12 +138,12 @@ for li = 1:numel(reportLines)
     logMsg = [logMsg reportLines{li} '\n'];
 end
 logMsg = [logMsg '```\n'];
-_append_log(logFile, 'evaluate_lesion_modules', ts, logMsg);
+append_log(logFile, 'evaluate_lesion_modules', ts, logMsg);
 fprintf('[Lesion Validation] Results appended to: %s\n', logFile);
 end
 
 % ─── Metric helpers ────────────────────────────────────────────────────────
-function [dice, iou, sensitivity, specificity] = _compute_metrics(pred, gt)
+function [dice, iou, sensitivity, specificity] = compute_metrics(pred, gt)
 pred = logical(pred); gt = logical(gt);
 tp = sum(pred(:) & gt(:));
 fp = sum(pred(:) & ~gt(:));
@@ -155,7 +155,7 @@ sensitivity = tp / max(tp + fn, 1);
 specificity = tn / max(tn + fp, 1);
 end
 
-function mask = _centroids_to_mask(centroids, H, W, radius)
+function mask = centroids_to_mask(centroids, H, W, radius)
 mask = false(H, W);
 if isempty(centroids), return; end
 [yy,xx] = ndgrid(1:H,1:W);
@@ -165,7 +165,7 @@ for k = 1:size(centroids,1)
 end
 end
 
-function mask = _bboxes_to_mask(bboxes, H, W)
+function mask = bboxes_to_mask(bboxes, H, W)
 mask = false(H, W);
 if isempty(bboxes), return; end
 for k = 1:size(bboxes,1)
@@ -176,7 +176,7 @@ for k = 1:size(bboxes,1)
 end
 end
 
-function _append_log(logFile, section, ts, content)
+function append_log(logFile, section, ts, content)
 try
     fid = fopen(logFile, 'a');
     if fid == -1, fprintf('[LOG] Cannot open: %s\n', logFile); return; end

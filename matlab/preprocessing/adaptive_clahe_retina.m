@@ -47,6 +47,8 @@ enhancedGreen = adapthisteq(green, ...
 % 5. Re-assemble RGB image
 enhancedImage = rawRGB;
 enhancedImage(:, :, 2) = enhancedGreen;
+greenChannel = enhancedGreen;
 
 fprintf('[MATLAB Preprocessing] Green-Channel CLAHE applied (denoise=%d) to: %s\n', denoise, imagePath);
 end
+

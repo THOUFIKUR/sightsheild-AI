@@ -140,11 +140,11 @@ else
 end
 
 logMsg = sprintf('IDRiD Localization subset (N=%d)\n%s\n%s', nLoc, od_report, fov_report);
-_append_log(logFile, 'evaluate_optic_disc_fovea', ts, logMsg);
+append_log(logFile, 'evaluate_optic_disc_fovea', ts, logMsg);
 fprintf('[OD/Fovea Validation] Results appended to: %s\n', logFile);
 end
 
-function _append_log(logFile, section, ts, content)
+function append_log(logFile, section, ts, content)
 try
     fid = fopen(logFile, 'a');
     if fid==-1, fprintf('[LOG] Cannot open: %s\n', logFile); return; end

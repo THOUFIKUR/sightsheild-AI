@@ -99,7 +99,7 @@ if isfield(analysisResult, 'fovea')
         plot(fv.center(1), fv.center(2), 'c+', 'MarkerSize', 18, 'LineWidth', 3);
         plot(fv.center(1), fv.center(2), 'co', 'MarkerSize', 20, 'LineWidth', 1.5);
         text(fv.center(1)+15, fv.center(2), 'Fovea*', ...
-            'Color', 'cyan', 'FontSize', 9, 'FontStyle', 'italic');
+            'Color', 'cyan', 'FontSize', 9, 'FontAngle', 'italic');
     end
 end
 

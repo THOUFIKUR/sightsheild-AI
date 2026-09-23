@@ -75,14 +75,14 @@ ex.svm_refined_mask = [];
 
 if ~isempty(idridMaskDir) && isfolder(idridMaskDir)
     try
-        svm = _train_or_load_ex_svm(lEnhanced, idridMaskDir, modelSavePath);
+        svm = train_or_load_ex_svm(lEnhanced, idridMaskDir, modelSavePath);
         if ~isempty(svm)
             % Classify each connected component region using SVM
             ccProps = regionprops(bwFinal, lEnhanced, 'PixelIdxList', 'MeanIntensity', ...
                 'Area', 'Eccentricity', 'EquivDiameter');
             refinedMask = false(imgH, imgW);
             for k = 1:numel(ccProps)
-                feat = _extract_ex_cc_features(ccProps(k));
+                feat = extract_ex_cc_features(ccProps(k));
                 if ~any(isnan(feat))
                     label = predict(svm, feat);
                     if label == 1
@@ -130,7 +130,7 @@ end
 end
 
 % ─── Helper: Train or load EX SVM ─────────────────────────────────────────
-function svm = _train_or_load_ex_svm(enhancedImg, maskDir, modelSavePath)
+function svm = train_or_load_ex_svm(enhancedImg, maskDir, modelSavePath)
 svm = [];
 if ~isempty(modelSavePath) && isfile(modelSavePath)
     try
@@ -170,11 +170,11 @@ for mi = 1:numel(maskFiles)
             roi = false(size(binaryGT)); roi(cc.PixelIdxList{k}) = true;
             if sum(roi(:) & binaryGT(:)) > 3
                 ccP = regionprops(roi, eImg, 'MeanIntensity','Area','Eccentricity','EquivDiameter');
-                if ~isempty(ccP), f=_extract_ex_cc_features(ccP(1)); if ~any(isnan(f)), posFeats=[posFeats;f]; end; end
+                if ~isempty(ccP), f=extract_ex_cc_features(ccP(1)); if ~any(isnan(f)), posFeats=[posFeats;f]; end; end
             else
                 ccP = regionprops(roi, eImg, 'MeanIntensity','Area','Eccentricity','EquivDiameter');
                 if ~isempty(ccP) && ccP(1).Area > 20
-                    f=_extract_ex_cc_features(ccP(1)); if ~any(isnan(f)), negFeats=[negFeats;f]; end
+                    f=extract_ex_cc_features(ccP(1)); if ~any(isnan(f)), negFeats=[negFeats;f]; end
                 end
             end
         end
@@ -197,6 +197,6 @@ catch ex2
 end
 end
 
-function feat = _extract_ex_cc_features(ccProp)
+function feat = extract_ex_cc_features(ccProp)
 feat = [ccProp.MeanIntensity, ccProp.Area, ccProp.Eccentricity, ccProp.EquivDiameter];
 end

@@ -100,13 +100,13 @@ if hm.total_count == 0
     hm.svm_filtered_count = 0;
 elseif ~isempty(idridMaskDir) && isfolder(idridMaskDir)
     try
-        svm = _train_or_load_hm_svm(enhanced, idridMaskDir, modelSavePath);
+        svm = train_or_load_hm_svm(enhanced, idridMaskDir, modelSavePath);
         if ~isempty(svm)
             keepIdx = false(hm.total_count, 1);
             for k = 1:hm.total_count
                 cx = round(hm.centroids(k,1));
                 cy = round(hm.centroids(k,2));
-                feat = _extract_hm_patch_features(enhanced, cx, cy, ...
+                feat = extract_hm_patch_features(enhanced, cx, cy, ...
                     hm.areas(k), hm.bounding_boxes(k,:));
                 if ~any(isnan(feat))
                     label = predict(svm, feat);
@@ -159,7 +159,7 @@ end
 end
 
 % ─── Helper: Train or load HM SVM ─────────────────────────────────────────
-function svm = _train_or_load_hm_svm(enhancedImg, maskDir, modelSavePath)
+function svm = train_or_load_hm_svm(enhancedImg, maskDir, modelSavePath)
 svm = [];
 if ~isempty(modelSavePath) && isfile(modelSavePath)
     try
@@ -199,7 +199,7 @@ for mi = 1:numel(maskFiles)
         posP = regionprops(bGT,'Centroid','Area','BoundingBox');
         for k=1:numel(posP)
             cx=round(posP(k).Centroid(1)); cy=round(posP(k).Centroid(2));
-            feat=_extract_hm_patch_features(eImg,cx,cy,posP(k).Area,posP(k).BoundingBox);
+            feat=extract_hm_patch_features(eImg,cx,cy,posP(k).Area,posP(k).BoundingBox);
             if ~any(isnan(feat)), posFeats=[posFeats;feat]; end
         end
         [H2,W2]=size(bGT); halfP=floor(patchSize/2);
@@ -207,7 +207,7 @@ for mi = 1:numel(maskFiles)
             rx=randi([halfP+1,W2-halfP]); ry=randi([halfP+1,H2-halfP]);
             if ~any(any(bGT(ry-halfP:ry+halfP,rx-halfP:rx+halfP)))
                 bb=[rx-halfP,ry-halfP,patchSize,patchSize];
-                feat=_extract_hm_patch_features(eImg,rx,ry,patchSize^2,bb);
+                feat=extract_hm_patch_features(eImg,rx,ry,patchSize^2,bb);
                 if ~any(isnan(feat)), negFeats=[negFeats;feat]; end
             end
         end
@@ -229,7 +229,7 @@ catch ex2
 end
 end
 
-function feat = _extract_hm_patch_features(eImg, cx, cy, area, bbox)
+function feat = extract_hm_patch_features(eImg, cx, cy, area, bbox)
 [H,W]=size(eImg); halfP=5;
 feat=nan(1,6);
 if cx-halfP<1||cx+halfP>W||cy-halfP<1||cy+halfP>H, return; end

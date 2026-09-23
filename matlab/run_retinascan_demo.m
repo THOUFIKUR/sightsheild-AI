@@ -261,7 +261,7 @@ if isfield(result.microaneurysms, 'candidate_count')
     fprintf(' %-30s %d candidates [PROTOTYPE]\\n', 'Microaneurysms:', ...
         result.microaneurysms.candidate_count);
 end
-if isfield(result.exudates, 'candidate_area_px')
+if isfield(result.exudates, 'candidate_area_px') && isfield(result.exudates, 'candidate_ratio')
     fprintf(' %-30s %d px (%.2f%%) [PROTOTYPE]\\n', 'Exudate area:', ...
         result.exudates.candidate_area_px, result.exudates.candidate_ratio * 100);
 end
