@@ -3,9 +3,12 @@ inference.py — RetinaScan AI Cloud Inference Router
 ====================================================
 Runs EfficientNet-B3 + CBAM grading and YOLO lesion detection on the server.
 
-Key fixes applied (2026-09):
+Key facts (2026-09 audit):
 • Retinal-aware preprocessing: auto-crop black border → square pad → 300×300
-• Real Score-CAM heatmap from ONNX feature_map output (not fake OpenCV CLAHE)
+• Heatmap: tries real gradient Grad-CAM (true_gradcam.py) first;
+  falls back to generate_heuristic_saliency_map() (CLAHE/BG-subtraction/YOLO)
+  ONLY when the PyTorch checkpoint is unavailable — fallback is always explicitly
+  labeled [HEURISTIC FALLBACK] in logs and response metadata.
 • Strengthened clinical arbitration using YOLO lesion counts as grade floor
 • No INT8 quantization — FP32 ONNX served directly from cloud backend
 """
@@ -96,61 +99,48 @@ def preprocess_fundus_rgb(image_rgb: np.ndarray, size: int = 300) -> np.ndarray:
     return tensor[np.newaxis]   # [1, 3, 300, 300]
 
 
-# ─── True Grad-CAM Heatmap (Class-Weighted + Smooth Blending) ─────────────────
-WEIGHTS_PATH = MODEL_DIR / "classifier_weights.npy"
-_classifier_weights = None
+# ─── Heuristic Saliency Map (CLAHE + BG-subtraction + YOLO fusion) ────────────
+# NOTE: This is NOT Grad-CAM. It does not compute gradients or use feature maps.
+# It is a classical image-processing saliency heuristic retained as an explicit
+# fallback when the PyTorch checkpoint for real Grad-CAM is unavailable.
 
-def get_classifier_weights():
-    global _classifier_weights
-    if _classifier_weights is None:
-        if WEIGHTS_PATH.exists():
-            _classifier_weights = np.load(str(WEIGHTS_PATH))
-        else:
-            try:
-                import onnx
-                m = onnx.load(GRADING_MODEL)
-                for init in m.graph.initializer:
-                    if "classifier.1.weight" in init.name:
-                        _classifier_weights = onnx.numpy_helper.to_array(init)
-                        np.save(str(WEIGHTS_PATH), _classifier_weights)
-                        break
-            except Exception as e:
-                print(f"[Grad-CAM Warning] Could not load classifier weights: {e}")
-    return _classifier_weights
-
-
-def generate_evidence_heatmap(
+def generate_heuristic_saliency_map(
     image_rgb: np.ndarray,
-    feature_map: np.ndarray | None = None,
     grade: int = 0,
     detections: list | None = None,
 ) -> str:
     """
-    High-Resolution Microvascular & Pathology Saliency Heatmap.
-    Extracts high-frequency microvascular anomalies in green channel (maximal retinal contrast),
-    isolating microaneurysms, hemorrhages, and exudates with exact fundus visual alignment.
+    HEURISTIC SALIENCY MAP — NOT GRAD-CAM.
+
+    Method: CLAHE on green channel → background subtraction → Gaussian blur →
+    threshold → YOLO bounding-box Gaussian foci overlay → JET colormap blend.
+
+    This does NOT compute gradients, does NOT use the model's feature maps,
+    and is NOT a gradient-class activation map.
+    Use only as an explicitly-labeled fallback when the PyTorch checkpoint is
+    unavailable for real Grad-CAM computation.
     """
     if len(image_rgb.shape) == 2:
         image_rgb = cv2.cvtColor(image_rgb, cv2.COLOR_GRAY2RGB)
     image_np = image_rgb[:, :, :3]
 
-    # Green channel extraction (maximal hemoglobin absorption)
+    # Green channel extraction (maximal haemoglobin absorption)
     green = image_np[:, :, 1]
-    
+
     # Adaptive CLAHE to equalize fundus illumination across macula and periphery
     clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
     enhanced = clahe.apply(green)
-    
+
     # Isolate high-frequency lesion and microvascular features by subtracting smooth background
     background = cv2.GaussianBlur(enhanced, (25, 25), 0)
     diff = cv2.absdiff(enhanced, background)
-    
+
     # Focus attention on lesions and microvascular structures (high-variance areas)
     _, thresh = cv2.threshold(diff, 20, 255, cv2.THRESH_TOZERO)
     blurred_diff = cv2.GaussianBlur(thresh, (15, 15), 0)
     norm_heatmap = cv2.normalize(blurred_diff, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-    
-    # Fuse YOLO lesion detections as hot attention foci if present
+
+    # Fuse YOLO lesion detections as attention foci if present
     if detections:
         h, w = norm_heatmap.shape
         y_grid, x_grid = np.ogrid[:h, :w]
@@ -162,19 +152,53 @@ def generate_evidence_heatmap(
             spot = np.exp(-((x_grid - cx) ** 2 + (y_grid - cy) ** 2) / (2.0 * (radius ** 2))) * 255.0
             norm_heatmap = np.clip(norm_heatmap.astype(np.float32) + spot * 0.7, 0, 255).astype(np.uint8)
 
-    # Apply colormap JET to lesion anomalies
+    # Apply colormap JET
     colored_map = cv2.applyColorMap(norm_heatmap, cv2.COLORMAP_JET)
-    
-    # Blend with original fundus scan (65% original + 35% lesion heatmap)
+
+    # Blend with original fundus scan (65% original + 35% heuristic heatmap)
     blended = cv2.addWeighted(image_np, 0.65, colored_map, 0.35, 0)
     _, buffer = cv2.imencode(".jpg", cv2.cvtColor(blended, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 92])
     return "data:image/jpeg;base64," + base64.b64encode(buffer).decode("utf-8")
 
-# Aliases for backwards compatibility
-generate_gradcam_heatmap = generate_evidence_heatmap
-generate_scorecam_heatmap = generate_evidence_heatmap
+
+def generate_best_available_heatmap(
+    image_rgb: np.ndarray,
+    grade: int = 0,
+    detections: list | None = None,
+) -> tuple:
+    """
+    Returns (heatmap_b64: str, heatmap_method: str, provenance: dict).
+
+    Priority:
+      1. Real gradient Grad-CAM via backend.utils.true_gradcam
+         → heatmap_method = 'grad_cam' | 'grad_cam_not_verified'
+      2. Heuristic saliency map (CLAHE/BG-subtraction/YOLO) as explicit fallback
+         → heatmap_method = 'heuristic_saliency_FALLBACK'
+
+    Never silently substitutes heuristic for Grad-CAM.
+    Always returns the method label so callers and API responses are transparent.
+    """
+    try:
+        from backend.utils.true_gradcam import generate_gradcam_heatmap, GRADCAM_STATUS, PROVENANCE_RECORD
+        heatmap, provenance = generate_gradcam_heatmap(image_rgb, target_class=grade)
+        method = "grad_cam" if GRADCAM_STATUS == "VERIFIED" else "grad_cam_NOT_VERIFIED"
+        print(f"[Heatmap] Real Grad-CAM used. Status: {GRADCAM_STATUS}")
+        return heatmap, method, provenance
+    except FileNotFoundError as e:
+        print(f"[Heatmap] [HEURISTIC FALLBACK] Real Grad-CAM unavailable: {e}")
+    except Exception as e:
+        print(f"[Heatmap] [HEURISTIC FALLBACK] Grad-CAM error: {e}")
+
+    heatmap = generate_heuristic_saliency_map(image_rgb, grade=grade, detections=detections)
+    provenance = {
+        "status": "HEURISTIC_FALLBACK",
+        "method": "CLAHE + background subtraction + YOLO Gaussian foci",
+        "note": "PyTorch checkpoint unavailable. Heuristic saliency used — NOT Grad-CAM.",
+    }
+    return heatmap, "heuristic_saliency_FALLBACK", provenance
 
 
+# ─── EfficientNet-B3 Grading ──────────────────────────────────────────────────
 
 
 # ─── EfficientNet-B3 Grading ──────────────────────────────────────────────────
@@ -443,16 +467,20 @@ async def run_inference(
         detections   = detections,
     )
 
-    # 6. Real Pathology-Focused Score-CAM heatmap
+    # 6. Best-available heatmap: real Grad-CAM if checkpoint present, heuristic saliency fallback
+    heatmap_method = "heuristic_saliency_FALLBACK"
+    heatmap_provenance = {}
     try:
-        heatmap_b64 = generate_scorecam_heatmap(
-            image_rgb    = image_rgb,
-            feature_map  = feature_map,
-            grade        = arbitration["final_grade"],
-            detections   = detections,
+        heatmap_b64, heatmap_method, heatmap_provenance = generate_best_available_heatmap(
+            image_rgb  = image_rgb,
+            grade      = arbitration["final_grade"],
+            detections = detections,
         )
     except Exception as exc:
-        print(f"[CAM Warning] Score-CAM failed ({exc}), generating fallback heatmap")
+        print(f"[Heatmap] Error generating heatmap: {exc}")
+        heatmap_b64 = generate_heuristic_saliency_map(image_rgb, grade=arbitration["final_grade"], detections=detections)
+        heatmap_method = "heuristic_saliency_FALLBACK"
+        heatmap_provenance = {"status": "HEURISTIC_FALLBACK", "note": str(exc)}
 
     # If CSME detected, escalate urgency
     urgency_text = result["urgency"]
@@ -471,10 +499,12 @@ async def run_inference(
             "image_shape":  [image_rgb.shape[1], image_rgb.shape[0]],
             "count":        len(detections),
         },
-        "heatmap_url":    heatmap_b64,
-        "timestamp":      datetime.now().isoformat(),
-        "quality_warnings": quality_warnings,
-        "_note": "RetinaScan AI — FP32 EfficientNet-B3+CBAM + Real Score-CAM + Khurana Clinical Arbitration",
+        "heatmap_url":       heatmap_b64,
+        "heatmap_method":    heatmap_method,
+        "heatmap_provenance": heatmap_provenance,
+        "timestamp":         datetime.now().isoformat(),
+        "quality_warnings":  quality_warnings,
+        "_note": "RetinaScan AI — FP32 EfficientNet-B3+CBAM + ETDRS Clinical Arbitration | heatmap_method field indicates Grad-CAM vs heuristic fallback",
     }
 
     return response
