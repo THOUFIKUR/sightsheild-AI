@@ -23,11 +23,76 @@ const GRADE_INFO = [
 const GRADE_TEXT_COLORS = ['text-emerald-700', 'text-amber-700', 'text-orange-700', 'text-red-700', 'text-rose-700'];
 
 /**
+ * Interactive YOLO lesion bounding box overlay component for EyeResultCard.
+ */
+function YoloInteractiveOverlay({ imageUrl, yolo, label }) {
+    const [showLabels, setShowLabels] = useState(true);
+    const detections = yolo?.detections || [];
+    const imgW = yolo?.image_shape?.[1] || 1024;
+    const imgH = yolo?.image_shape?.[0] || 1024;
+
+    const COLORS = {
+        0: { border: 'border-red-500', bg: 'bg-red-600', text: 'text-red-300' },
+        1: { border: 'border-amber-400', bg: 'bg-amber-600', text: 'text-amber-200' },
+        2: { border: 'border-cyan-400', bg: 'bg-cyan-600', text: 'text-cyan-200' },
+    };
+
+    return (
+        <div className="relative w-full h-full flex items-center justify-center bg-slate-950 overflow-hidden">
+            <img src={imageUrl} alt={label} className="w-full h-full object-contain pointer-events-none" />
+
+            {/* Bounding box layer */}
+            <div className="absolute inset-0 pointer-events-none">
+                {detections.map((det, idx) => {
+                    const [x1, y1, x2, y2] = det.bbox;
+                    const style = COLORS[det.class_id] || COLORS[0];
+                    return (
+                        <div
+                            key={idx}
+                            className={`absolute border-2 ${style.border} rounded-sm shadow-sm`}
+                            style={{
+                                left: `${(x1 / imgW) * 100}%`,
+                                top: `${(y1 / imgH) * 100}%`,
+                                width: `${Math.max(2, ((x2 - x1) / imgW) * 100)}%`,
+                                height: `${Math.max(2, ((y2 - y1) / imgH) * 100)}%`,
+                            }}
+                        >
+                            {showLabels && (
+                                <span className={`absolute -top-4 left-0 text-[9px] font-mono font-bold text-white px-1 py-0.2 rounded ${style.bg} whitespace-nowrap shadow`}>
+                                    {det.class_name} {Math.round(det.confidence * 100)}%
+                                </span>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Bottom telemetry overlay pill */}
+            <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-auto">
+                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-lg bg-black/80 text-white border border-slate-700 backdrop-blur-sm">
+                    {detections.length > 0 ? `🎯 ${detections.length} Lesions Identified` : '✓ Clear Retina (0 Lesions)'}
+                </span>
+                {detections.length > 0 && (
+                    <button
+                        onClick={() => setShowLabels(s => !s)}
+                        className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-lg bg-rs-primary hover:bg-rs-navy-800 text-white border border-white/20 transition-all shadow-sm"
+                    >
+                        {showLabels ? 'Hide Labels' : 'Show Labels'}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/**
  * Renders a card for one eye's AI inference result.
  */
 function EyeResultCard({ label, data }) {
-    const [viewMode, setViewMode] = useState('raw'); // 'raw' | 'cam' | 'split'
+    const [viewMode, setViewMode] = useState('raw'); // 'raw' | 'cam' | 'split' | 'yolo'
     const hasCam = !!(data?.raw_heatmap_url || data?.heatmap_url);
+    const yoloData = data?.yolo || data?.yoloDetections;
+    const hasYolo = !!yoloData;
 
     return (
         <div className="bg-white rounded-2xl border border-rs-border p-5 shadow-rs-sm space-y-4">
@@ -36,46 +101,69 @@ function EyeResultCard({ label, data }) {
                     <span className="w-2 h-2 rounded-full bg-rs-primary"></span>
                     <h3 className="font-semibold text-xs text-rs-deep-navy font-display">{label}</h3>
                 </div>
-                <span className={`grade-pill grade-${data.grade}`}>Grade {data.grade}</span>
+                <div className="flex items-center gap-2">
+                    {hasYolo && (yoloData.count > 0 || yoloData.detections?.length > 0) && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                            {yoloData.count || yoloData.detections?.length} Lesions
+                        </span>
+                    )}
+                    <span className={`grade-pill grade-${data.grade}`}>Grade {data.grade}</span>
+                </div>
             </div>
 
             {/* Visualizer view */}
             <div className="space-y-3">
-                <div className="relative aspect-square max-h-72 w-full mx-auto bg-rs-ice rounded-xl overflow-hidden border border-rs-border">
-                    {viewMode === 'raw' && (
-                        <img src={data.image_url} alt={label} className="w-full h-full object-contain" />
-                    )}
-                    {viewMode === 'cam' && (
-                        <img src={data.raw_heatmap_url || data.heatmap_url || data.image_url} alt={`${label} Saliency`} className="w-full h-full object-contain" />
-                    )}
-                    {viewMode === 'split' && hasCam && (
+                {viewMode === 'split' && hasCam ? (
+                    <div className="w-full">
                         <SplitHeatmapView originalUrl={data.image_url} heatmapUrl={data.raw_heatmap_url || data.heatmap_url} />
-                    )}
-                </div>
+                    </div>
+                ) : (
+                    <div className="relative aspect-square max-h-80 w-full mx-auto bg-slate-950 rounded-xl overflow-hidden border border-rs-border flex items-center justify-center">
+                        {viewMode === 'raw' && (
+                            <img src={data.image_url} alt={label} className="w-full h-full object-contain" />
+                        )}
+                        {viewMode === 'cam' && (
+                            <img src={data.raw_heatmap_url || data.heatmap_url || data.image_url} alt={`${label} Saliency`} className="w-full h-full object-contain" />
+                        )}
+                        {viewMode === 'yolo' && (
+                            <YoloInteractiveOverlay imageUrl={data.image_url} yolo={yoloData} label={label} />
+                        )}
+                    </div>
+                )}
 
                 {/* View toggles */}
-                {hasCam && (
-                    <div className="flex items-center justify-center gap-1.5 p-1 bg-rs-ice rounded-lg border border-rs-border text-xs">
-                        <button
-                            onClick={() => setViewMode('raw')}
-                            className={`px-3 py-1 rounded font-medium transition-all ${viewMode === 'raw' ? 'bg-rs-primary text-white shadow-rs-xs' : 'text-rs-muted hover:text-rs-deep-navy'}`}
-                        >
-                            Original
-                        </button>
+                <div className="flex flex-wrap items-center justify-center gap-1.5 p-1 bg-rs-ice rounded-lg border border-rs-border text-xs">
+                    <button
+                        onClick={() => setViewMode('raw')}
+                        className={`px-3 py-1 rounded font-medium transition-all ${viewMode === 'raw' ? 'bg-rs-primary text-white shadow-rs-xs' : 'text-rs-muted hover:text-rs-deep-navy'}`}
+                    >
+                        Original
+                    </button>
+                    {hasCam && (
                         <button
                             onClick={() => setViewMode('cam')}
                             className={`px-3 py-1 rounded font-medium transition-all ${viewMode === 'cam' ? 'bg-rs-primary text-white shadow-rs-xs' : 'text-rs-muted hover:text-rs-deep-navy'}`}
                         >
                             Grad-CAM
                         </button>
+                    )}
+                    {hasCam && (
                         <button
                             onClick={() => setViewMode('split')}
                             className={`px-3 py-1 rounded font-medium transition-all ${viewMode === 'split' ? 'bg-rs-primary text-white shadow-rs-xs' : 'text-rs-muted hover:text-rs-deep-navy'}`}
                         >
                             Split Slider
                         </button>
-                    </div>
-                )}
+                    )}
+                    {hasYolo && (
+                        <button
+                            onClick={() => setViewMode('yolo')}
+                            className={`px-3 py-1 rounded font-medium transition-all ${viewMode === 'yolo' ? 'bg-rs-primary text-white shadow-rs-xs' : 'text-rs-muted hover:text-rs-deep-navy'}`}
+                        >
+                            YOLO Lesions
+                        </button>
+                    )}
+                </div>
             </div>
             
             <div className="flex items-baseline justify-between pt-1">
@@ -593,6 +681,31 @@ export default function ResultsView() {
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* ═══ DETAILED MICRO-LESION MAPPING ACTION BANNER (YOLOv8) ═══ */}
+            <div className="bg-gradient-to-r from-rs-navy-800 to-rs-primary rounded-2xl p-6 text-white shadow-rs-md flex flex-col md:flex-row items-start md:items-center justify-between gap-5 border border-rs-bright/20">
+                <div className="space-y-1.5 max-w-2xl">
+                    <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-full bg-white/15 text-white text-[10px] font-mono font-bold uppercase tracking-wider border border-white/20">
+                            Spatial Telemetry
+                        </span>
+                        <span className="text-xs text-rs-cyan font-mono font-medium">YOLOv8 Deep Feature Detection</span>
+                    </div>
+                    <h3 className="text-xl font-bold font-display text-white tracking-tight">
+                        Detailed Micro-Lesion Spatial Mapping & Diagnostics
+                    </h3>
+                    <p className="text-xs text-white/80 font-normal leading-relaxed">
+                        Inspect individual microaneurysms, flame hemorrhages, and hard exudates with pixel-accurate coordinates, confidence scores, and quadrant distribution.
+                    </p>
+                </div>
+                <button
+                    onClick={() => navigate('/yolo-results', { state: activeRecord ? { record: activeRecord } : state })}
+                    className="shrink-0 bg-white hover:bg-rs-ice text-rs-deep-navy font-semibold px-5 py-3 rounded-xl transition-all shadow-rs-sm flex items-center gap-2 group text-xs font-mono border border-white/40"
+                >
+                    <span>Launch Detailed YOLO Inspector</span>
+                    <span className="group-hover:translate-x-1 transition-transform">→</span>
+                </button>
             </div>
 
             {/* ═══ CLINICAL VALIDATION CHAIN (ETDRS) ═══ */}

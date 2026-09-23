@@ -414,13 +414,13 @@ export async function generatePDF({
 
         // Determine images for right eye (OD)
         const odOrigSrc  = record?.rightEye?.image_url  || imagePreview;
-        const odHeatSrc  = record?.rightEye?.heatmap_url || result.heatmap_url;
-        const odYoloDet  = record?.rightEye?.yoloDetections || result.yolo;
+        const odHeatSrc  = record?.rightEye?.heatmap_url || record?.rightEye?.raw_heatmap_url || result?.heatmap_url || result?.raw_heatmap_url;
+        const odYoloDet  = record?.rightEye?.yoloDetections || record?.rightEye?.yolo || result?.yoloDetections || result?.yolo;
 
         // Determine images for left eye (OS)
         const osOrigSrc  = record?.leftEye?.image_url  || null;
-        const osHeatSrc  = record?.leftEye?.heatmap_url || null;
-        const osYoloDet  = record?.leftEye?.yoloDetections || null;
+        const osHeatSrc  = record?.leftEye?.heatmap_url || record?.leftEye?.raw_heatmap_url || null;
+        const osYoloDet  = record?.leftEye?.yoloDetections || record?.leftEye?.yolo || null;
 
         const hasLeftEye = !!(osOrigSrc);
 

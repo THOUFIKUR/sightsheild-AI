@@ -92,8 +92,8 @@ const YoloResultsPage = () => {
     const odImage = imagePreview || record?.rightEye?.image_url;
     const osImage = record?.leftEye?.image_url;
 
-    const odYolo = result?.yolo || record?.rightEye?.yoloDetections;
-    const osYolo = record?.leftEye?.yoloDetections;
+    const odYolo = result?.yolo || result?.yoloDetections || record?.rightEye?.yoloDetections || record?.rightEye?.yolo;
+    const osYolo = record?.leftEye?.yoloDetections || record?.leftEye?.yolo;
 
     if (!odImage) {
         return (

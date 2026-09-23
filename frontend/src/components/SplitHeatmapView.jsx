@@ -39,12 +39,12 @@ export default function SplitHeatmapView({ originalUrl, heatmapUrl }) {
       >
         {/* Original — clipped on the right */}
         <img src={originalUrl} alt='Original'
-          className='absolute inset-0 w-full h-full object-cover'
+          className='absolute inset-0 w-full h-full object-contain'
           style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
           draggable={false} />
         {/* Heatmap — clipped on the left */}
         <img src={heatmapUrl} alt='Heatmap'
-          className='absolute inset-0 w-full h-full object-cover'
+          className='absolute inset-0 w-full h-full object-contain'
           style={{ clipPath: `inset(0 0 0 ${pos}%)` }}
           draggable={false} />
         {/* Divider line */}

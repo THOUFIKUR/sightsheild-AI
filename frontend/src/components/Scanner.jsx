@@ -228,9 +228,14 @@ export default function Scanner() {
             const leftRisk = deriveRiskScore(leftInferenceResult);
             const overallRiskScore = Math.max(rightRisk, leftRisk);
 
-            const [rightHeatB64, leftHeatB64, rightImgB64, leftImgB64] = await Promise.all([
-                rightInferenceResult.heatmapBlob ? blobToBase64(rightInferenceResult.heatmapBlob) : Promise.resolve(null),
-                (leftInferenceResult && leftInferenceResult.heatmapBlob) ? blobToBase64(leftInferenceResult.heatmapBlob) : Promise.resolve(null),
+            const rightHeatB64 = rightInferenceResult.heatmap_url
+                || rightInferenceResult.heatmapUrl
+                || (rightInferenceResult.heatmapBlob ? await blobToBase64(rightInferenceResult.heatmapBlob) : null);
+            const leftHeatB64 = leftInferenceResult?.heatmap_url
+                || leftInferenceResult?.heatmapUrl
+                || (leftInferenceResult?.heatmapBlob ? await blobToBase64(leftInferenceResult.heatmapBlob) : null);
+
+            const [rightImgB64, leftImgB64] = await Promise.all([
                 rightEye?.file ? blobToBase64(rightEye.file) : Promise.resolve(null),
                 leftEye?.file  ? blobToBase64(leftEye.file)  : Promise.resolve(null),
             ]);
@@ -240,8 +245,8 @@ export default function Scanner() {
                 : rightInferenceResult.grade;
 
             setProgressMsg('Generating Lesion Segmentation Overlays...');
-            let rightFinalHeatmap = rightHeatB64;
-            let leftFinalHeatmap = leftHeatB64;
+            let rightFinalHeatmap = rightHeatB64 || rightInferenceResult.heatmap_url;
+            let leftFinalHeatmap = leftHeatB64 || leftInferenceResult?.heatmap_url;
 
             if (rightHeatB64 && rightImgB64) {
                 try {
