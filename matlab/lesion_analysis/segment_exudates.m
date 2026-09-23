@@ -115,6 +115,15 @@ else
     end
 end
 
+% Clinical safety flag: raw morphological candidates must NOT be usable for diagnosis
+ex.diagnosis_usable = strcmp(ex.svm_status, 'TRAINED_AND_APPLIED');
+if ~ex.diagnosis_usable
+    ex.usage_warning = 'UNVALIDATED PROTOTYPE — Raw morphological candidate area NOT usable for clinical staging or diagnosis (SVM not applied).';
+    fprintf('[Exudate SAFEGUARD] %s\n', ex.usage_warning);
+else
+    ex.usage_warning = '';
+end
+
 % ─── 8. Save overlay ─────────────────────────────────────────────────────────
 ex.overlay_path = '';
 if saveOverlay

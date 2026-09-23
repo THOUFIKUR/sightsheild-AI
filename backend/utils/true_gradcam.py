@@ -394,7 +394,8 @@ class GradCAM:
         return f"data:image/jpeg;base64,{b64}"
 
     def __del__(self):
-        self.remove_hooks()
+        if hasattr(self, "_hooks"):
+            self.remove_hooks()
 
 
 # ─── Module-level singleton (lazy init) ────────────────────────────────────

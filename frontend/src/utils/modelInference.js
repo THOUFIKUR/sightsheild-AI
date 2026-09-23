@@ -30,6 +30,15 @@ async function analyzeViaBackend(imageFile, onProgress) {
         signal: AbortSignal.timeout(15000),
     });
 
+    if (inferenceResponse.status === 422) {
+        const errJson = await inferenceResponse.json().catch(() => ({}));
+        const detail = errJson.detail || {};
+        const rejErr = new Error(detail.reason ? `Image Rejected: ${detail.reason}` : 'Image Rejected — Please Recapture');
+        rejErr.isQualityRejection = true;
+        rejErr.rejectionDetail = detail;
+        throw rejErr;
+    }
+
     if (!inferenceResponse.ok) throw new Error(`Backend ${inferenceResponse.status}`);
     
     const responseData = await inferenceResponse.json();
@@ -182,6 +191,9 @@ export const analyzeImage = async (imageFile, onProgress) => {
                 const result = await analyzeViaBackend(imageFile, onProgress);
                 return result;
             } catch (err) {
+                if (err.isQualityRejection) {
+                    throw err; // Critical: DO NOT bypass quality rejection with offline model!
+                }
                 console.warn('Backend failed, falling back to browser ONNX:', err.message);
                 onProgress('Server unavailable — switching to offline AI...');
             }

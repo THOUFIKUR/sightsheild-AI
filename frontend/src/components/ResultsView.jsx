@@ -52,10 +52,31 @@ function EyeResultCard({ label, accent, data }) {
             
             <p className='text-sm text-slate-300 font-medium leading-relaxed'>{data.diagnosis}</p>
             
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0A0F1E] border border-[#1F2937] w-fit">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50"></span>
-                <span className='text-[10px] font-black text-slate-500 uppercase tracking-widest'>{data.imageQuality || 'Valid Scan'}</span>
-            </div>
+            {data?.quality_warnings && data.quality_warnings.length > 0 ? (
+                <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/50 space-y-1.5 animate-fade-in shadow-lg shadow-amber-950/20">
+                    <div className="flex items-center gap-2 text-amber-400">
+                        <span className="text-sm">⚠️</span>
+                        <span className="text-[10px] font-black uppercase tracking-wider">Scan Quality Notice & Adaptive Enhancement</span>
+                    </div>
+                    {data.quality_warnings.map((w, idx) => (
+                        <p key={idx} className="text-xs text-amber-200/90 font-medium leading-relaxed bg-amber-900/20 p-2 rounded-lg border border-amber-500/20">
+                            {w}
+                        </p>
+                    ))}
+                    {data.quality_metrics && (
+                        <p className="text-[9px] font-mono text-amber-400/80 pt-1">
+                            Focus Sharpness: {data.quality_metrics.sharpness} | FOV: {data.quality_metrics.fov_coverage}% | Mean: {data.quality_metrics.mean_intensity}
+                        </p>
+                    )}
+                </div>
+            ) : (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0A0F1E] border border-[#1F2937] w-fit">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50"></span>
+                    <span className='text-[10px] font-black text-slate-400 uppercase tracking-widest'>
+                        {data?.imageQuality || 'Valid Diagnostic Scan'}
+                    </span>
+                </div>
+            )}
 
             {/* Feature B: Split heatmap */}
             {(data.raw_heatmap_url || data.heatmap_url) && data.image_url && (
@@ -553,6 +574,14 @@ export default function ResultsView() {
                                         <div className="space-y-2">
                                             <h2 className="text-4xl font-black text-white tracking-tighter leading-tight">{info?.label}</h2>
                                             <p className="text-slate-400 font-medium leading-relaxed">{result?.diagnosis}</p>
+                                            {result?.quality_warnings && result.quality_warnings.length > 0 && (
+                                                <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/50 space-y-1 mt-2">
+                                                    <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">⚠️ Quality Notice</p>
+                                                    {result.quality_warnings.map((w, idx) => (
+                                                        <p key={idx} className="text-xs text-amber-200/90 leading-snug">{w}</p>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                         
                                         <div className="grid grid-cols-2 gap-4 py-4">

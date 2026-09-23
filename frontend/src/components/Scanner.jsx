@@ -112,6 +112,7 @@ export default function Scanner() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [progressMsg, setProgressMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
+    const [qualityRejection, setQualityRejection] = useState(null); // { reason, recapture_guidance, metrics }
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [modelStatus, setModelStatus] = useState({ ready: false, isDownloading: false, progress: 0, message: '' });
 
@@ -201,6 +202,7 @@ export default function Scanner() {
 
         setIsAnalyzing(true);
         setErrorMsg('');
+        setQualityRejection(null);
 
         try {
             setProgressMsg('Loading AI Model (first offline run may take 30-60 sec)...');
@@ -272,13 +274,14 @@ export default function Scanner() {
                     heatmap_url: rightFinalHeatmap,
                     raw_heatmap_url: rightHeatB64 || rightInferenceResult.heatmapUrl || rightInferenceResult.heatmap_url,
                     image_url: rightImgB64 || rightEye.preview,
-                    // 'yolo' key is read by ClinicianValidationCard in ResultsView for ICDR lesion counts.
-                    // 'yoloDetections' key is kept for backwards compat (generateCombinedHeatmap etc.).
                     yolo: rightInferenceResult.yoloDetections || rightInferenceResult.yolo || null,
                     yoloDetections: rightInferenceResult.yoloDetections || rightInferenceResult.yolo || null,
-                    // Store arbitration so ClinicianValidationCard can read per-eye lesion summaries
                     arbitration: rightInferenceResult.arbitration || null,
-                    imageQuality: rightInferenceResult.imageQuality || 'Sufficient Image Quality',
+                    quality_warnings: rightInferenceResult.quality_warnings || [],
+                    quality_metrics: rightInferenceResult.quality_metrics || null,
+                    imageQuality: (rightInferenceResult.quality_warnings && rightInferenceResult.quality_warnings.length > 0)
+                        ? 'Borderline Scan (Enhanced)'
+                        : 'Valid Diagnostic Scan',
                 },
                 leftEye: leftInferenceResult ? {
                     grade: leftInferenceResult.grade,
@@ -292,7 +295,11 @@ export default function Scanner() {
                     yolo: leftInferenceResult.yoloDetections || leftInferenceResult.yolo || null,
                     yoloDetections: leftInferenceResult.yoloDetections || leftInferenceResult.yolo || null,
                     arbitration: leftInferenceResult.arbitration || null,
-                    imageQuality: leftInferenceResult.imageQuality || 'Sufficient Image Quality',
+                    quality_warnings: leftInferenceResult.quality_warnings || [],
+                    quality_metrics: leftInferenceResult.quality_metrics || null,
+                    imageQuality: (leftInferenceResult.quality_warnings && leftInferenceResult.quality_warnings.length > 0)
+                        ? 'Borderline Scan (Enhanced)'
+                        : 'Valid Diagnostic Scan',
                 } : null,
             };
 
@@ -305,6 +312,16 @@ export default function Scanner() {
             sessionStorage.removeItem('retinascan_left_preview');
         } catch (err) {
             console.error('Analysis failed:', err);
+            if (err.isQualityRejection) {
+                setQualityRejection(err.rejectionDetail || {
+                    reason: 'Quality Failure',
+                    recapture_guidance: err.message || 'Please recapture image.',
+                });
+                setErrorMsg('');
+                window.scrollTo({ top: 120, behavior: 'smooth' });
+                return;
+            }
+
             let displayError = err.message || 'Biometric analysis failed. Please verify image quality and retry.';
             
             // Provide clearer guidance for common offline/worker failures
@@ -391,6 +408,66 @@ export default function Scanner() {
                         <span className="text-emerald-500/70 text-[11px] hidden sm:inline">— On-device models cached for field use</span>
                     </div>
                     <span className="text-[10px] uppercase font-bold text-emerald-500/80">56.5 MB Cached</span>
+                </div>
+            )}
+
+            {/* Image Quality Gate Rejection (HTTP 422) */}
+            {qualityRejection && (
+                <div className="bg-rose-950/70 border-2 border-rose-500 p-6 rounded-3xl space-y-4 animate-fade-in shadow-2xl shadow-rose-950/60">
+                    <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-rose-600/30 border border-rose-500/50 flex items-center justify-center text-2xl shrink-0">
+                            🚫
+                        </div>
+                        <div className="space-y-2 flex-1">
+                            <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest">
+                                    Quality Gate Failure
+                                </span>
+                                <span className="text-xs font-mono text-rose-300">HTTP 422 Non-Gradeable Scan</span>
+                            </div>
+                            <h3 className="text-xl font-black text-white tracking-tight">
+                                Image Rejected — Please Recapture ({qualityRejection.reason})
+                            </h3>
+                            <div className="bg-rose-900/40 p-4 rounded-2xl border border-rose-500/40 space-y-1">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-rose-300">
+                                    Recapture Protocol & Guidance
+                                </p>
+                                <p className="text-sm font-semibold text-white leading-relaxed">
+                                    {qualityRejection.recapture_guidance}
+                                </p>
+                            </div>
+                            {qualityRejection.metrics && (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                                    <div className="bg-[#0A0F1E]/60 p-2.5 rounded-xl border border-rose-500/20 text-center">
+                                        <p className="text-[9px] font-black text-slate-500 uppercase">Focus Sharpness</p>
+                                        <p className="text-xs font-black text-rose-400 mt-0.5">{qualityRejection.metrics.sharpness}</p>
+                                    </div>
+                                    <div className="bg-[#0A0F1E]/60 p-2.5 rounded-xl border border-rose-500/20 text-center">
+                                        <p className="text-[9px] font-black text-slate-500 uppercase">Illumination</p>
+                                        <p className="text-xs font-black text-rose-400 mt-0.5">{qualityRejection.metrics.mean_intensity}</p>
+                                    </div>
+                                    <div className="bg-[#0A0F1E]/60 p-2.5 rounded-xl border border-rose-500/20 text-center">
+                                        <p className="text-[9px] font-black text-slate-500 uppercase">FOV Area</p>
+                                        <p className="text-xs font-black text-rose-400 mt-0.5">{qualityRejection.metrics.fov_coverage}%</p>
+                                    </div>
+                                    <div className="bg-[#0A0F1E]/60 p-2.5 rounded-xl border border-rose-500/20 text-center">
+                                        <p className="text-[9px] font-black text-slate-500 uppercase">Score</p>
+                                        <p className="text-xs font-black text-rose-400 mt-0.5">{qualityRejection.metrics.quality_score}/100</p>
+                                    </div>
+                                </div>
+                            )}
+                            <p className="text-[11px] text-rose-300/80 italic pt-1">
+                                🔒 Clinical safeguard active: Grading model execution is blocked until an adequate diagnostic scan is provided.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setQualityRejection(null)}
+                            className="w-8 h-8 rounded-xl bg-rose-900/50 hover:bg-rose-800 text-rose-200 flex items-center justify-center text-sm font-black transition-all shrink-0"
+                            title="Dismiss Notification"
+                        >
+                            ✕
+                        </button>
+                    </div>
                 </div>
             )}
 

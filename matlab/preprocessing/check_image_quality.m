@@ -50,11 +50,8 @@ metrics = struct(...
     'FOVCoverage',   fovCoverage, ...
     'QualityScore',  qualityScore);
 
-% Quality evaluation logic
-if sharpnessScore < focusThresh
-    isGradeable = false;
-    feedback = 'REJECT (Out of Focus): Please adjust the camera diopter or stabilize the patient head rest.';
-elseif meanIntensity < 25
+% Quality evaluation logic (Illumination and framing prioritized)
+if meanIntensity < 25
     isGradeable = false;
     feedback = 'REJECT (Underexposed): Inadequate illumination. Increase flash intensity or check pupil dilation.';
 elseif meanIntensity > 215
@@ -63,6 +60,9 @@ elseif meanIntensity > 215
 elseif fovCoverage < 40
     isGradeable = false;
     feedback = 'REJECT (Incomplete Field): Pupil alignment shifted. Center the camera over the optic axis.';
+elseif sharpnessScore < focusThresh
+    isGradeable = false;
+    feedback = 'REJECT (Out of Focus): Please adjust the camera diopter or stabilize the patient head rest.';
 else
     isGradeable = true;
     feedback = 'GRADEABLE: High-quality diagnostic scan. Ready for automated pipeline.';

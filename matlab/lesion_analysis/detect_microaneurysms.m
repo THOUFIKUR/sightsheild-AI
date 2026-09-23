@@ -240,6 +240,15 @@ end
 fprintf('[MA Detection] Final: morphological=%d | sub-pixel refined=%d | SVM status: %s\n', ...
     ma.candidate_count, ma.candidate_count, ma.svm_status);
 
+% Clinical safety flag: raw morphological candidates must NOT be usable for diagnosis
+ma.diagnosis_usable = strcmp(ma.svm_status, 'TRAINED_AND_APPLIED');
+if ~ma.diagnosis_usable
+    ma.usage_warning = 'UNVALIDATED PROTOTYPE — Raw morphological candidate count NOT usable for clinical staging or diagnosis (SVM not applied).';
+    fprintf('[MA SAFEGUARD] %s\n', ma.usage_warning);
+else
+    ma.usage_warning = '';
+end
+
 % ─── 8. Overlay visualization ────────────────────────────────────────────────
 ma.overlay_path = '';
 if saveOverlay && ma.candidate_count > 0

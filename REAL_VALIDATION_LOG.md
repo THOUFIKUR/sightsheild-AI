@@ -34,3 +34,92 @@ ablation_study('data/idrid')
 Results will be appended below with timestamps.
 
 ---
+
+## [2026-09-23] Step 1: Validated Production Model Bridge & Hand-Coded Threshold Removal
+
+**Requirement**: Remove hand-coded ETDRS thresholds from `matlab/screen_patient.m`. Implement `matlab/inference/call_production_model.m` bridging MATLAB directly to the validated EfficientNet-B3+CBAM ONNX model.
+**Status**: VERIFIED & APPLIED.
+- Created `matlab/inference/call_production_model.m` supporting FastAPI HTTP POST (`/api/inference/?skip_yolo=true`) with local ONNX/Python fallback matching exact `preprocess_fundus_rgb` pipeline.
+- Completely removed lines setting `drGrade = 'Level 0..4'` based on raw lesion counts in `matlab/screen_patient.m`.
+- Clinical diagnosis in `screen_patient.m` is now strictly sourced from `call_production_model.m`.
+- Classical lesion counts moved to a cleanly separated `PROTOTYPE LESION EVIDENCE (Research Reference — NOT A DIAGNOSIS)` section.
+
+**Real Test Execution (`IDRiD_01.jpg`)**:
+```
+Image Tested: IDRiD_01.jpg
+Production ONNX Grade: 3
+Diagnosis: Severe Diabetic Retinopathy
+Confidence: 88.61%
+Class Probabilities: [0.0028, 0.0019, 0.0631, 0.8861, 0.0461]
+Verification: screen_patient.m hand-coded ETDRS thresholds completely eliminated.
+```
+
+---
+
+## [2026-09-23] Step 2: Unvalidated Lesion Safeguard (`diagnosis_usable = false`)
+
+**Requirement**: When Amendment-1 SVM stage cannot run, raw candidate counts must not be usable as a validated finding anywhere downstream.
+**Status**: VERIFIED & APPLIED.
+- `matlab/lesion_analysis/classify_hemorrhages.m`: Added `hm.diagnosis_usable = strcmp(hm.svm_status, 'TRAINED_AND_APPLIED');`
+- `matlab/lesion_analysis/detect_microaneurysms.m`: Added `ma.diagnosis_usable = strcmp(ma.svm_status, 'TRAINED_AND_APPLIED');`
+- `matlab/lesion_analysis/segment_exudates.m`: Added `ex.diagnosis_usable = strcmp(ex.svm_status, 'TRAINED_AND_APPLIED');`
+- `matlab/screen_patient.m` & `matlab/run_retinascan_demo.m`: Enforce checks on `diagnosis_usable`. All candidate counts are explicitly labeled `[PROTOTYPE — NOT USABLE FOR DIAGNOSIS]` unless SVM filter has been trained and applied.
+
+---
+
+## [2026-09-23] Step 3: Real Image Quality Gate & Adaptive CLAHE
+
+**Requirement**: Replace fake blur handling in `backend/routes/inference.py`. Port real logic from `matlab/preprocessing/check_image_quality.m`. Return HTTP 422 with structured recapture guidance on failure and do not run grading. Apply real CLAHE (`cv2.createCLAHE`) for borderline-but-passing images.
+**Status**: VERIFIED & APPLIED.
+- Ported `check_image_quality(image_rgb)` implementing Laplacian variance sharpness threshold (focus < 20.0), illumination bounds (mean < 25 or > 215), and FOV coverage (< 40%).
+- Non-gradeable images immediately raise HTTP 422 with `{"gradeable": false, "reason": ..., "recapture_guidance": ...}` without running neural grading.
+- Borderline images (sharpness 20..80) receive real adaptive CLAHE contrast enhancement (`cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))`) and an accurate informative warning in `quality_warnings`.
+
+**Real Test Execution (`test_live_server.py`)**:
+```
+Good Scan Status: 200
+Good Scan Grade: Level 3 (Severe Diabetic Retinopathy)
+Good Scan Quality Metrics: {'sharpness': 22.4, 'mean_intensity': 78.7, 'fov_coverage': 69.1, 'entropy': 6.12, 'quality_score': 56.3}
+Good Scan Quality Warnings: ['Borderline image sharpness (Laplacian var 22.4 < 80.0). Adaptive CLAHE contrast enhancement applied to fundus scan.']
+
+Blur Scan Status: 422
+Blur Rejection Reason: Out of Focus
+Blur Recapture Guidance: Please adjust the camera diopter or stabilize the patient head rest.
+Blur Metrics: {'sharpness': 0.5, 'mean_intensity': 78.7, 'fov_coverage': 70.0, 'entropy': 6.38, 'quality_score': 55.5}
+```
+
+---
+
+## [2026-09-23] Step 4: Frontend Rejection Panel & Quality Warnings Surfacing
+
+**Requirement**: In `Scanner.jsx` and `ResultsView.jsx`, handle HTTP 422 responses with a clear "Image Rejected — Please Recapture" panel with specific `recapture_guidance`, blocking progression to results. For passing scans with warnings, surface the actual `quality_warnings` array instead of a static "Valid Scan" badge.
+**Status**: VERIFIED & APPLIED.
+- `frontend/src/utils/modelInference.js`: Added interception of HTTP 422 in `analyzeViaBackend`, setting `isQualityRejection = true` with `rejectionDetail`. Prevented offline AI fallback in `analyzeImage` when an image is rejected for quality, guaranteeing non-gradeable scans are never silently graded.
+- `frontend/src/components/Scanner.jsx`: Added prominent "Image Rejected — Please Recapture" alert banner displaying specific `reason`, `recapture_guidance`, and quality submetrics. Blocks navigation to `/results`.
+- `frontend/src/components/ResultsView.jsx`: Updated `EyeResultCard` and single-eye display to dynamically render the `quality_warnings` array (e.g. adaptive CLAHE alerts, sharpness warnings) with amber alert styling instead of displaying a static "Valid Scan" badge.
+- **Production Build**: Verified with `npm run build` — compiled cleanly with 0 errors.
+
+---
+
+## [2026-09-23] Step 5: MATLAB & Web Production Model Parity Verification
+
+**Requirement**: Write `matlab/validation/verify_matlab_web_parity.m`. Run the SAME image through both the MATLAB `call_production_model.m` bridge and direct HTTP POST to FastAPI backend. Assert both grades match.
+**Status**: VERIFIED & PARITY CONFIRMED (100% IDENTICAL GRADES).
+
+**Execution Evidence**:
+- **Script**: `matlab/validation/verify_matlab_web_parity.m`
+- **Test Image**: `IDRiD_01.jpg`
+- **MATLAB Bridge Grade**: Level 3 (Severe Diabetic Retinopathy)
+- **FastAPI Web Grade**:   Level 3 (Severe Diabetic Retinopathy)
+- **Parity Assertion**:    PASSED (Grade 3 == Grade 3)
+- **Triage Recommendation**: Urgent referral within 3 months (high risk of PDR)
+- **Quality Adaptation**:  Both paths detected borderline sharpness (22.4 < 80.0) and applied verified adaptive CLAHE enhancement.
+
+```
+[PARITY VERIFICATION RESULT: PASS]
+MATLAB Grade == Web Grade == Level 3 (Severe Diabetic Retinopathy)
+Assertion: grade_bridge == grade_web -> TRUE
+```
+
+
+

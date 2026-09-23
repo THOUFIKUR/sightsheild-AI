@@ -258,16 +258,28 @@ if isfield(result.vessels, 'vessel_density_pct')
     end
 end
 if isfield(result.microaneurysms, 'candidate_count')
-    fprintf(' %-30s %d candidates [PROTOTYPE]\n', 'Microaneurysms:', ...
-        result.microaneurysms.candidate_count);
+    maTag = '[PROTOTYPE — NOT USABLE FOR DIAGNOSIS]';
+    if isfield(result.microaneurysms, 'diagnosis_usable') && result.microaneurysms.diagnosis_usable
+        maTag = '[VALIDATED — SVM FILTER APPLIED]';
+    end
+    fprintf(' %-30s %d candidates %s\n', 'Microaneurysms:', ...
+        result.microaneurysms.candidate_count, maTag);
 end
 if isfield(result.exudates, 'candidate_area_px') && isfield(result.exudates, 'candidate_ratio')
-    fprintf(' %-30s %d px (%.2f%%) [PROTOTYPE]\n', 'Exudate area:', ...
-        result.exudates.candidate_area_px, result.exudates.candidate_ratio * 100);
+    exTag = '[PROTOTYPE — NOT USABLE FOR DIAGNOSIS]';
+    if isfield(result.exudates, 'diagnosis_usable') && result.exudates.diagnosis_usable
+        exTag = '[VALIDATED — SVM FILTER APPLIED]';
+    end
+    fprintf(' %-30s %d px (%.2f%%) %s\n', 'Exudate area:', ...
+        result.exudates.candidate_area_px, result.exudates.candidate_ratio * 100, exTag);
 end
 if isfield(result.hemorrhages, 'total_count') && isfield(result.hemorrhages, 'dot_count')
-    fprintf(' %-30s %d total (dot=%d, flame=%d) [PROTOTYPE]\n', 'Hemorrhages:', ...
-        result.hemorrhages.total_count, result.hemorrhages.dot_count, result.hemorrhages.flame_count);
+    hmTag = '[PROTOTYPE — NOT USABLE FOR DIAGNOSIS]';
+    if isfield(result.hemorrhages, 'diagnosis_usable') && result.hemorrhages.diagnosis_usable
+        hmTag = '[VALIDATED — SVM FILTER APPLIED]';
+    end
+    fprintf(' %-30s %d total (dot=%d, flame=%d) %s\n', 'Hemorrhages:', ...
+        result.hemorrhages.total_count, result.hemorrhages.dot_count, result.hemorrhages.flame_count, hmTag);
 end
 if isfield(result.neovascularization, 'nv_disc_candidate')
     fprintf(' %-30s NVD=%d NVE=%d [RESEARCH PROTOTYPE]\n', 'Neovascularization:', ...

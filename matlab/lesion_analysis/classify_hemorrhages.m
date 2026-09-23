@@ -151,6 +151,15 @@ else
     end
 end
 
+% Clinical safety flag: raw morphological candidates must NOT be usable for diagnosis
+hm.diagnosis_usable = strcmp(hm.svm_status, 'TRAINED_AND_APPLIED');
+if ~hm.diagnosis_usable
+    hm.usage_warning = 'UNVALIDATED PROTOTYPE — Raw morphological candidate count NOT usable for clinical staging or diagnosis (SVM not applied).';
+    fprintf('[Hemorrhage SAFEGUARD] %s\n', hm.usage_warning);
+else
+    hm.usage_warning = '';
+end
+
 % ─── 8. Overlay ─────────────────────────────────────────────────────────────
 hm.overlay_path = '';
 if saveOverlay && hm.total_count > 0
