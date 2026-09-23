@@ -73,7 +73,7 @@ hm.method       = 'morphological_bottomhat + shape_classify + optional_svm';
 hm.validated    = false;
 hm.note = 'PROTOTYPE CANDIDATE DETECTION. No GT masks confirmed in repo. Accuracy not evaluated.';
 
-allProps = [dotProps, flameProps];
+allProps = [dotProps(:); flameProps(:)];
 if ~isempty(allProps)
     hm.bounding_boxes = vertcat(allProps.BoundingBox);
     hm.areas          = vertcat(allProps.Area);
