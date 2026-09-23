@@ -48,8 +48,8 @@ retinaL = double(lEnhanced(retinaMask));
 if isempty(retinaL)
     exThresh = 240;
 else
-    exThresh = mean(retinaL) + 2.5 * std(retinaL);
-    exThresh = max(exThresh, 205); % Exudates must be distinctly brighter than retina
+    exThresh = mean(retinaL) + 3.0 * std(retinaL);
+    exThresh = max(exThresh, 230); % Exudates must be distinctly brighter than retina
 end
 bwBright = (double(lEnhanced) > exThresh) & retinaMask;
 
@@ -63,7 +63,7 @@ else
 end
 
 % ─── 5. Morphological cleaning ───────────────────────────────────────────────
-bwClean = bwareaopen(bwBright, 15);
+bwClean = bwareaopen(bwBright, 25);
 seClose = strel('disk', 2);
 bwFinal = imclose(bwClean, seClose);
 

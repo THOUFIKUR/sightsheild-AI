@@ -102,27 +102,27 @@ if isfield(res, 'vessels') && isfield(res.vessels, 'vessel_density_pct')
     vesselDens = res.vessels.vessel_density_pct;
 end
 
-% Clinical Decision Logic (ETDRS 4-2-1 Rule & Quality Gate)
+% Clinical Decision Logic (ETDRS Clinical Criteria & Quality Gate)
 if isfield(res, 'quality') && isfield(res.quality, 'gradeable') && ~res.quality.gradeable
     drGrade = 'UNGRADEABLE / REJECTED (Quality Failure)';
     referral = sprintf('RECAPTURE REQUIRED — %s', res.quality.feedback);
     riskColor = 'ORANGE';
-elseif maCount >= 20 || hmTotal >= 5 || exArea > 10000
-    drGrade = 'Level 3 / 4 (Severe NPDR / High-Risk PDR)';
-    referral = 'URGENT REFERRAL — Specialist review within 48-72 hours';
-    riskColor = 'RED';
-elseif maCount >= 5 || hmTotal >= 1 || exArea > 500
-    drGrade = 'Level 2 (Moderate NPDR)';
-    referral = 'REFERRAL RECOMMENDED — Specialist review within 2-4 weeks';
-    riskColor = 'ORANGE';
-elseif maCount >= 1
+elseif maCount == 0 && hmTotal == 0 && exArea < 300
+    drGrade = 'Level 0 (No Diabetic Retinopathy)';
+    referral = 'NON-REFERABLE — Annual routine screening at PHC';
+    riskColor = 'GREEN';
+elseif maCount <= 5 && hmTotal <= 1 && exArea < 500
     drGrade = 'Level 1 (Mild NPDR)';
     referral = 'NON-REFERABLE — Routine PHC follow-up in 12 months';
     riskColor = 'YELLOW';
+elseif (maCount > 5 && maCount < 20) || (hmTotal >= 2 && hmTotal < 6) || (exArea >= 500 && exArea < 4000)
+    drGrade = 'Level 2 (Moderate NPDR)';
+    referral = 'REFERRAL RECOMMENDED — Specialist review within 2-4 weeks';
+    riskColor = 'ORANGE';
 else
-    drGrade = 'Level 0 (No Diabetic Retinopathy)';
-    referral = 'NON-REFERABLE — Annual routine screening';
-    riskColor = 'GREEN';
+    drGrade = 'Level 3 / 4 (Severe NPDR / High-Risk PDR)';
+    referral = 'URGENT REFERRAL — Specialist review within 48-72 hours';
+    riskColor = 'RED';
 end
 
 fprintf('------------------------------------------------------------------------\n');

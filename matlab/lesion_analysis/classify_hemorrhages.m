@@ -34,23 +34,32 @@ if size(rawRGB, 3) == 1, rawRGB = cat(3, rawRGB, rawRGB, rawRGB); end
 retinaMask = rawRGB(:,:,1) > 20 | rawRGB(:,:,2) > 15;
 retinaMask = imerode(retinaMask, strel('disk', 15));
 
+% Exclude blood vessels to avoid false flame hemorrhage detection
+try
+    [vessels, ~] = segment_retinal_vessels(imagePath);
+    vesselMask = imdilate(vessels > 0, strel('disk', 2));
+catch
+    vesselMask = false(size(retinaMask));
+end
+
 green    = rawRGB(:, :, 2);
 enhanced = adapthisteq(green, 'ClipLimit', 0.02, 'NumTiles', [8 8]);
 
 % ─── 2. Bottom-hat transform ─────────────────────────────────────────────────
-diskSE    = strel('disk', 12);
+diskSE    = strel('disk', 10);
 bottomHat = imbothat(enhanced, diskSE);
-bottomHat(~retinaMask) = 0;
+bottomHat(~retinaMask | vesselMask) = 0;
 
 % ─── 3. Adaptive threshold inside retinal FOV ────────────────────────────────
-retinaVals = double(bottomHat(retinaMask));
+validRetina = retinaMask & ~vesselMask;
+retinaVals = double(bottomHat(validRetina));
 if isempty(retinaVals)
-    hmThresh = 35;
+    hmThresh = 40;
 else
-    hmThresh = mean(retinaVals) + 2.8 * std(retinaVals);
-    hmThresh = max(hmThresh, 25);
+    hmThresh = mean(retinaVals) + 3.2 * std(retinaVals);
+    hmThresh = max(hmThresh, 35);
 end
-bwRaw = (double(bottomHat) > hmThresh) & retinaMask;
+bwRaw = (double(bottomHat) > hmThresh) & validRetina;
 
 % ─── 4. Remove noise ─────────────────────────────────────────────────────────
 bwFiltered = bwareaopen(bwRaw, 15);
