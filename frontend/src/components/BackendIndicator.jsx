@@ -75,8 +75,8 @@ export default function BackendIndicator() {
 
     if (status === 'checking') {
         return (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-800 text-xs font-bold text-slate-400">
-                <span className="w-2 h-2 rounded-full bg-slate-500 animate-pulse" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-rs-border bg-rs-ice text-xs font-mono font-medium text-rs-muted">
+                <span className="w-1.5 h-1.5 rounded-full bg-rs-muted/50 animate-pulse" />
                 <span className="sm:inline hidden">API</span>
             </div>
         );
@@ -84,16 +84,16 @@ export default function BackendIndicator() {
 
     if (status === 'connected') {
         return (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-xs font-bold text-emerald-400 transition-colors">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 relative badge-ping" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-xs font-mono font-medium text-emerald-700 transition-colors">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 <span className="sm:inline hidden">API</span>
             </div>
         );
     }
 
     return (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-rose-500/20 bg-rose-500/10 text-xs font-bold text-rose-400 transition-colors" title="Backend Server Disconnected">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-rose-200 bg-rose-50 text-xs font-mono font-medium text-rose-700 transition-colors" title="Backend Server Disconnected">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
             <span className="sm:inline hidden">API</span>
         </div>
     );

@@ -1,99 +1,172 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Manrope:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ================================================================
+   RetiScan AI — Clinical Ophthalmology Design System
+   Human-designed medical software typography: Manrope + IBM Plex Sans + IBM Plex Mono
+   ================================================================ */
+
 @layer base {
   html, body {
-    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
-    background-color: #0A0F1E;
-    color: #f1f5f9;
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    background-color: #F7FBFF;
+    color: #06284A;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
     overflow-x: hidden;
     width: 100%;
     max-width: 100vw;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    @apply font-black tracking-tight text-white;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Manrope', 'IBM Plex Sans', sans-serif;
+    color: #06284A;
+    letter-spacing: -0.02em;
+    font-weight: 600;
   }
 
-  /* Hide scrollbar for nav and other containers */
+  h1 {
+    font-size: clamp(2rem, 3.2vw, 2.6rem); /* 32px to 42px */
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  h2 {
+    font-size: clamp(1.4rem, 2vw, 1.75rem); /* 22px to 28px */
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  h3 {
+    font-size: clamp(1.1rem, 1.4vw, 1.25rem); /* 18px to 20px */
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  h4 {
+    font-size: 1rem; /* 16px */
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  /* Monospace technical data helper */
+  .font-mono, code, kbd, samp {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #CBDCEE; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9CBBD8; }
+
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
 
 @layer components {
-  /* ── Reusable buttons ── */
+  /* ── Buttons (IBM Plex Sans, 500-600 weight, functional) ── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 font-bold rounded-xl px-5 py-2.5 text-sm transition-all duration-200 focus:outline-none active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
-    min-height: 48px;
+    @apply inline-flex items-center justify-center gap-2 font-medium rounded-xl px-4 py-2.5 text-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none;
+    font-family: 'IBM Plex Sans', sans-serif;
+    min-height: 42px;
   }
 
   .btn-primary {
-    @apply btn bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white shadow-lg shadow-violet-900/40;
+    @apply btn bg-[#0757A8] hover:bg-[#064A90] text-white shadow-sm focus:ring-[#0757A8]/30 font-medium;
   }
 
   .btn-secondary {
-    @apply btn bg-[#1F2937] border border-[#374151] text-slate-300 hover:bg-[#374151] hover:text-white;
+    @apply btn bg-white border border-[#CBDCEE] text-rs-text hover:bg-rs-ice hover:border-rs-bright/40 focus:ring-rs-bright/20 shadow-sm font-medium;
   }
 
   .btn-ghost {
-    @apply btn text-slate-400 hover:text-white hover:bg-[#1F2937]/50;
+    @apply btn text-rs-text-secondary hover:text-rs-primary hover:bg-rs-primary/5 font-medium;
   }
 
   .btn-danger {
-    @apply btn bg-red-600/10 border border-red-500/20 text-red-500 hover:bg-red-600 hover:text-white;
+    @apply btn bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 focus:ring-rose-400/30 font-medium;
+  }
+
+  .btn-orange {
+    @apply btn bg-[#D97706] hover:bg-[#B45309] text-white shadow-sm focus:ring-[#D97706]/30 font-medium;
   }
 
   /* ── Cards ── */
   .card {
-    @apply bg-[#111827] rounded-2xl border border-[#1F2937] p-5 shadow-xl;
+    @apply bg-white rounded-2xl border-2 border-rs-border p-5 shadow-sm transition-all duration-200;
   }
 
   .card-elevated {
-    @apply bg-[#111827] rounded-3xl border border-[#1F2937] p-6 shadow-2xl transition-all duration-300 hover:border-violet-500/40 hover:shadow-violet-900/20;
+    @apply bg-white rounded-2xl border-2 border-rs-border p-6 shadow-xs transition-all duration-200 hover:shadow-sm hover:border-[#9CBBD8];
   }
 
   .stat-card {
-    @apply bg-[#111827] border border-[#1F2937] rounded-2xl p-5 flex flex-col items-center gap-2 text-center transition-all duration-300 hover:scale-[1.02] hover:border-violet-500/30;
+    @apply bg-white border-2 border-rs-border rounded-2xl p-5 flex flex-col items-center gap-2 text-center transition-all duration-200 hover:shadow-xs hover:border-[#9CBBD8];
   }
 
   /* ── Form Inputs ── */
   .input, .form-input {
-    @apply w-full bg-[#0A0F1E] border border-[#1F2937] text-white rounded-xl px-4 py-3 text-sm placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 transition-all;
+    @apply w-full bg-[#F8FAFD] border-2 border-[#CBDCEE] text-rs-deep-navy font-normal rounded-xl px-4 py-2.5 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rs-bright/30 focus:border-rs-bright focus:bg-white transition-all shadow-xs;
+    font-family: 'IBM Plex Sans', sans-serif;
   }
 
   .select {
-    @apply input appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23475569%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_1rem_center] bg-no-repeat;
+    @apply input appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%235A7A99%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_1rem_center] bg-no-repeat cursor-pointer;
   }
 
   /* ── Typography Helpers ── */
   .section-label {
-    @apply text-slate-500 uppercase tracking-widest text-[10px] font-bold mb-1 ml-1;
+    @apply text-rs-text-secondary text-[11px] font-medium uppercase tracking-[0.06em];
+  }
+
+  .tech-data {
+    font-family: 'IBM Plex Mono', monospace;
+    @apply text-xs text-rs-navy-800 font-medium;
+  }
+
+  .heading-hero {
+    font-family: 'Manrope', sans-serif;
+    @apply text-3xl sm:text-4xl lg:text-[42px] font-semibold text-rs-deep-navy tracking-tight leading-[1.2];
+  }
+
+  .heading-lg {
+    font-family: 'Manrope', sans-serif;
+    @apply text-2xl sm:text-3xl font-semibold text-rs-deep-navy tracking-tight leading-snug;
+  }
+
+  .heading-md {
+    font-family: 'Manrope', sans-serif;
+    @apply text-lg sm:text-xl font-semibold text-rs-deep-navy tracking-tight leading-snug;
+  }
+
+  .heading-sm {
+    font-family: 'Manrope', sans-serif;
+    @apply text-base font-semibold text-rs-deep-navy tracking-tight leading-normal;
   }
 
   /* ── Grade Badges ── */
   .grade-pill {
-    @apply inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full border transition-colors;
+    @apply inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full border transition-colors;
+    font-family: 'IBM Plex Sans', sans-serif;
   }
 
-  .grade-0 { @apply bg-emerald-500/10 text-emerald-400 border-emerald-500/20; }
-  .grade-1 { @apply bg-yellow-500/10 text-yellow-400 border-yellow-500/20; }
-  .grade-2 { @apply bg-orange-500/10 text-orange-400 border-orange-500/20; }
-  .grade-3 { @apply bg-red-500/10 text-red-400 border-red-500/20; }
-  .grade-4 { @apply bg-pink-500/10 text-pink-400 border-pink-500/20; }
+  .grade-0 { @apply bg-emerald-50 text-emerald-700 border-emerald-200; }
+  .grade-1 { @apply bg-amber-50 text-amber-800 border-amber-200; }
+  .grade-2 { @apply bg-orange-50 text-orange-800 border-orange-200; }
+  .grade-3 { @apply bg-rose-50 text-rose-800 border-rose-200; }
+  .grade-4 { @apply bg-pink-50 text-pink-800 border-pink-200; }
 
   /* ── Tables ── */
   .data-table-container {
-    @apply bg-[#111827] border border-[#1F2937] rounded-3xl overflow-hidden shadow-2xl;
+    @apply bg-white border-2 border-rs-border rounded-2xl overflow-hidden shadow-xs;
   }
 
   .data-table {
@@ -101,67 +174,70 @@
   }
 
   .data-table thead {
-    @apply bg-[#0A0F1E] border-b border-[#1F2937];
+    @apply bg-rs-ice border-b-2 border-rs-border;
   }
 
   .data-table th {
-    @apply px-6 py-4 text-left text-[10px] font-black uppercase tracking-[0.2em] text-slate-500;
+    @apply px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-rs-text-secondary;
   }
 
   .data-table td {
-    @apply px-6 py-4 text-slate-300 border-b border-[#1F2937]/50;
+    @apply px-4 py-3 text-rs-text border-b border-rs-border/60 text-sm;
   }
 
   .data-table tbody tr {
-    @apply hover:bg-[#1F2937]/40 transition-colors cursor-default;
+    @apply hover:bg-rs-ice/60 transition-colors cursor-default;
   }
 
   .data-table tbody tr:last-child td {
     @apply border-b-0;
   }
-}
 
-/* ── Custom Animations ── */
-@keyframes bounce-once {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
+  /* ── Sidebar ── */
+  .rs-sidebar {
+    @apply fixed left-0 top-0 bottom-0 w-[220px] bg-rs-deep-navy flex flex-col z-40;
+    background: linear-gradient(180deg, #06284A 0%, #0A3A6B 100%);
+  }
 
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(0.98); }
-}
+  .rs-sidebar-link {
+    @apply flex items-center gap-3 px-4 py-2.5 mx-3 rounded-xl text-[13px] font-medium text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white;
+  }
 
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+  .rs-sidebar-link.active {
+    @apply bg-rs-bright text-white shadow-rs-glow font-semibold;
+  }
 
-@keyframes scale-up {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
+  /* ── Top Header ── */
+  .rs-header {
+    @apply sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-rs-border;
+  }
 
-@keyframes scan {
-  0% { transform: translateY(-380px); opacity: 0; }
-  15%, 85% { opacity: 1; }
-  100% { transform: translateY(380px); opacity: 0; }
-}
+  /* ── Content Area ── */
+  .rs-content {
+    @apply flex-1 bg-rs-ice min-h-screen;
+  }
 
-.animate-bounce-once {
-  animation: bounce-once 0.5s ease-in-out;
-}
+  /* ── Status Badges ── */
+  .badge-success { @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200; }
+  .badge-warning { @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-orange-50 text-rs-orange border border-orange-200; }
+  .badge-danger  { @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-red-50 text-red-600 border border-red-200; }
+  .badge-info    { @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-rs-bright border border-blue-200; }
 
-.animate-pulse-soft {
-  animation: pulse-soft 3s ease-in-out infinite;
-}
+  /* ── Retinal pattern background ── */
+  .retina-pattern {
+    background-image: radial-gradient(circle at 50% 50%, rgba(7,87,168,0.03) 0%, transparent 70%),
+                      radial-gradient(circle at 30% 40%, rgba(53,199,244,0.02) 0%, transparent 50%),
+                      radial-gradient(circle at 70% 60%, rgba(255,116,23,0.02) 0%, transparent 50%);
+  }
 
-.animate-fade-in {
-  animation: fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
+  /* ── Solid Clinical Text Tokens (No excessive gradients) ── */
+  .text-gradient-blue {
+    @apply text-rs-deep-navy;
+  }
 
-.animate-scale-up {
-  animation: scale-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  .text-gradient-orange {
+    @apply text-[#D97706];
+  }
 }
 
 /* ── Safe Area UI Helpers ── */
@@ -169,4 +245,75 @@
   .pt-safe { padding-top: env(safe-area-inset-top); }
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
   .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* ── Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── ExplodeView Animations ── */
+@keyframes ev-scan-ring {
+  0% { transform: scale(0); opacity: 0; }
+  30% { opacity: 0.8; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+@keyframes ev-vessel-draw {
+  from { stroke-dashoffset: 1000; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes ev-layer-separate {
+  0% { transform: translateY(0) scale(1); opacity: 0.8; }
+  100% { transform: translateY(var(--ev-offset, 0px)) scale(0.95); opacity: 1; }
+}
+
+@keyframes ev-label-in {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes ev-converge {
+  0% { transform: translateY(var(--ev-offset, 0px)) scale(0.95); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes ev-scan-beam {
+  0% { transform: translateY(-200px); opacity: 0; }
+  20% { opacity: 0.6; }
+  80% { opacity: 0.6; }
+  100% { transform: translateY(200px); opacity: 0; }
+}
+
+@keyframes ev-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.5); opacity: 1; }
+}
+
+.ev-scan-ring {
+  animation: ev-scan-ring 1.5s ease-out forwards;
+}
+
+.ev-vessel-draw {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: ev-vessel-draw 2s ease-out forwards;
+}
+
+.ev-label {
+  animation: ev-label-in 0.4s ease-out forwards;
+}
+
+.ev-dot {
+  animation: ev-dot-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ev-progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
 }

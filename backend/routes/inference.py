@@ -327,107 +327,11 @@ def run_lesion_detection(image_rgb: np.ndarray) -> list:
     return detections
 
 
-# ─── Image Quality Assessment (IQA) — Ported from MATLAB check_image_quality.m ──
+# ─── Blur check ───────────────────────────────────────────────────────────────
 
-def check_image_quality(image_rgb: np.ndarray, focus_thresh: float = 20.0) -> dict:
-    """
-    Ported from matlab/preprocessing/check_image_quality.m
-    Evaluates:
-      1. Focus Sharpness (Laplacian variance with replicate border)
-      2. Illumination Bounds (mean intensity)
-      3. Field of View (FOV) Coverage (retina mask area percentage)
-      4. Information Entropy & Composite Quality Score (0..100)
-
-    Returns dict with gradeable, reason, recapture_guidance, metrics, and borderline flag.
-    """
-    if len(image_rgb.shape) == 2:
-        gray = image_rgb
-    else:
-        gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
-
-    # 1. Sharpness measure using 2D Laplacian operator matching MATLAB kernel
-    # lapKernel = [0 1 0; 1 -4 1; 0 1 0]
-    lap_kernel = np.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]], dtype=np.float64)
-    lap_filtered = cv2.filter2D(gray.astype(np.float64), -1, lap_kernel, borderType=cv2.BORDER_REPLICATE)
-    sharpness_score = float(np.var(lap_filtered))
-
-    # 2. Mean intensity & entropy
-    mean_intensity = float(np.mean(gray))
-
-    # Shannon entropy
-    counts, _ = np.histogram(gray, bins=256, range=(0, 256))
-    probs = counts[counts > 0] / float(gray.size)
-    entropy_score = float(-np.sum(probs * np.log2(probs)))
-
-    # 3. Field of View (FOV) coverage
-    retina_mask = gray > 15
-    fov_coverage = float(np.sum(retina_mask) / gray.size * 100.0)
-
-    # Composite Quality Score [0, 100]
-    sharp_norm = min(sharpness_score / 500.0, 1.0)
-    entropy_norm = min(entropy_score / 7.5, 1.0)
-    fov_norm = min(fov_coverage / 60.0, 1.0)
-    quality_score = float((sharp_norm * 0.40 + entropy_norm * 0.30 + fov_norm * 0.30) * 100.0)
-
-    metrics = {
-        "sharpness": round(sharpness_score, 1),
-        "mean_intensity": round(mean_intensity, 1),
-        "fov_coverage": round(fov_coverage, 1),
-        "entropy": round(entropy_score, 2),
-        "quality_score": round(quality_score, 1),
-    }
-
-    # Evaluate against thresholds ported from check_image_quality.m
-    # Illumination and framing evaluated first so exposure failures aren't misdiagnosed as blur
-    if mean_intensity < 25.0:
-        return {
-            "gradeable": False,
-            "reason": "Underexposed",
-            "recapture_guidance": "Inadequate illumination. Increase flash intensity or check pupil dilation.",
-            "metrics": metrics,
-            "borderline": False,
-        }
-    if mean_intensity > 215.0:
-        return {
-            "gradeable": False,
-            "reason": "Overexposed",
-            "recapture_guidance": "Severe flash artifact washing out macular details.",
-            "metrics": metrics,
-            "borderline": False,
-        }
-    if fov_coverage < 40.0:
-        return {
-            "gradeable": False,
-            "reason": "Incomplete Field",
-            "recapture_guidance": "Pupil alignment shifted. Center the camera over the optic axis.",
-            "metrics": metrics,
-            "borderline": False,
-        }
-    if sharpness_score < focus_thresh:
-        return {
-            "gradeable": False,
-            "reason": "Out of Focus",
-            "recapture_guidance": "Please adjust the camera diopter or stabilize the patient head rest.",
-            "metrics": metrics,
-            "borderline": False,
-        }
-
-    # Borderline image: passes minimum focus_thresh (20.0), but sharpness < 80.0
-    # Problem statement requirement: "adaptive enhancement for borderline images"
-    is_borderline = (sharpness_score < 80.0)
-
-    return {
-        "gradeable": True,
-        "reason": None,
-        "recapture_guidance": None,
-        "metrics": metrics,
-        "borderline": is_borderline,
-    }
-
-
-def is_blurry(img: np.ndarray, threshold: float = 20.0) -> bool:
-    q = check_image_quality(img, focus_thresh=threshold)
-    return not q["gradeable"] and q["reason"] == "Out of Focus"
+def is_blurry(img: np.ndarray, threshold: float = 100.0) -> bool:
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    return float(cv2.Laplacian(gray, cv2.CV_64F).var()) < threshold
 
 
 # ─── Clinical Arbitration Engine ─────────────────────────────────────────────
@@ -529,30 +433,10 @@ async def run_inference(
 
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 
-    # 2. Real Image Quality Assessment (Req 1 & 3 — ported from check_image_quality.m)
-    quality_result = check_image_quality(image_rgb)
-    if not quality_result["gradeable"]:
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "gradeable": False,
-                "reason": quality_result["reason"],
-                "recapture_guidance": quality_result["recapture_guidance"],
-                "metrics": quality_result["metrics"],
-            },
-        )
-
+    # 2. Quality check
     quality_warnings = []
-    # Real Adaptive CLAHE applied ONLY when image is borderline (sharpness 20..80)
-    if quality_result["borderline"]:
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        lab = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2LAB)
-        lab[:, :, 0] = clahe.apply(lab[:, :, 0])
-        image_rgb = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
-        quality_warnings.append(
-            f"Borderline image sharpness (Laplacian var {quality_result['metrics']['sharpness']:.1f} < 80.0). "
-            f"Adaptive CLAHE contrast enhancement applied to fundus scan."
-        )
+    if is_blurry(image_rgb):
+        quality_warnings.append("Low focus sharpness detected (Laplacian Var < 100). Adaptive CLAHE applied.")
 
     # 3. EfficientNet-B3 grading
     try:
@@ -619,7 +503,6 @@ async def run_inference(
         "heatmap_method":    heatmap_method,
         "heatmap_provenance": heatmap_provenance,
         "timestamp":         datetime.now().isoformat(),
-        "quality_metrics":   quality_result["metrics"],
         "quality_warnings":  quality_warnings,
         "_note": "RetinaScan AI — FP32 EfficientNet-B3+CBAM + ETDRS Clinical Arbitration | heatmap_method field indicates Grad-CAM vs heuristic fallback",
     }

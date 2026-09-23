@@ -96,7 +96,7 @@ export default function ProfilePage({ userId, profile, onUpdate }) {
       if (onUpdate) onUpdate(data);
       setInitialData(formData);
       setInitialAvatar(avatarUrl);
-      setMsg({ type: 'success', text: 'Profile updated successfully!' });
+      setMsg({ type: 'success', text: 'Profile updated successfully.' });
     } catch (err) {
       console.error('Update failed:', err);
       setMsg({ type: 'error', text: 'Failed to update profile. Please try again.' });
@@ -134,94 +134,96 @@ export default function ProfilePage({ userId, profile, onUpdate }) {
     }
   };
 
-  const inputClass = 'w-full bg-[#0A0F1E] border border-[#1F2937] text-white rounded-xl px-4 py-3 text-sm placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 transition-all';
-  const selectClass = inputClass + ' appearance-none';
-  const labelClass = 'text-[10px] font-black text-slate-500 uppercase tracking-widest';
+  const inputClass = 'w-full bg-rs-ice border border-rs-border text-rs-deep-navy font-normal rounded-xl px-3.5 py-2.5 text-sm placeholder:text-rs-muted/50 focus:outline-none focus:ring-2 focus:ring-rs-primary/20 focus:border-rs-primary focus:bg-white transition-all shadow-xs';
+  const selectClass = inputClass + ' appearance-none cursor-pointer';
+  const labelClass = 'text-xs font-medium text-rs-deep-navy block mb-1';
 
   return (
-    <div className='max-w-4xl mx-auto space-y-10 font-["Outfit"] pb-24 animate-fade-in relative pt-12'>
+    <div className='max-w-4xl mx-auto space-y-6 pb-20 animate-fade-in relative pt-10'>
       {/* Back Button */}
-      <button onClick={() => window.history.back()} className="absolute top-0 left-0 flex items-center justify-center w-10 h-10 rounded-2xl bg-violet-600/10 border border-violet-500/20 text-violet-400 hover:bg-violet-600 hover:text-white transition-all group shrink-0 z-10">
-        <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
+      <button onClick={() => window.history.back()} className="absolute top-0 left-0 flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-rs-border text-rs-deep-navy hover:bg-rs-ice hover:text-rs-primary transition-all group shrink-0 z-10 shadow-rs-xs">
+        <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
       </button>
       
-      <div className='flex flex-col md:flex-row md:items-end justify-between gap-6'>
+      <div className='flex flex-col md:flex-row md:items-end justify-between gap-4'>
         <div>
-          <p className='section-label'>Identity Management</p>
-          <h1 className='text-4xl md:text-5xl font-black text-white tracking-tighter leading-none'>My Profile</h1>
-          <p className='text-slate-500 mt-4 max-w-lg'>Manage your personal and professional profile details for clinical screening.</p>
+          <p className='text-rs-primary text-xs font-medium'>Identity & Profile Management</p>
+          <h1 className='text-2xl md:text-3xl font-semibold text-rs-deep-navy font-display tracking-tight leading-tight mt-1'>My Profile</h1>
+          <p className='text-rs-muted mt-1 max-w-lg font-normal text-sm'>Manage your personal credentials and institutional affiliations for clinical screening.</p>
         </div>
       </div>
 
       {msg && (
-        <div className={`p-4 rounded-2xl text-sm font-bold text-center border animate-fade-in ${
-          msg.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'
+        <div className={`p-3.5 rounded-xl text-xs font-medium text-center border animate-fade-in ${
+          msg.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
         }`}>
           {msg.text}
         </div>
       )}
 
-      <form onSubmit={handleUpdate} className='card-elevated bg-[#111827] p-8 md:p-10 space-y-10'>
+      <form onSubmit={handleUpdate} className='bg-white border border-rs-border rounded-2xl p-6 md:p-8 space-y-6 shadow-rs-sm'>
         {/* Avatar + Role Badge */}
-        <div className='flex flex-col sm:flex-row items-center gap-6 p-6 rounded-2xl bg-[#0A0F1E] border border-[#1F2937]'>
+        <div className='flex flex-col sm:flex-row items-center gap-5 p-5 rounded-xl bg-rs-ice/60 border border-rs-border'>
           {/* Avatar */}
           <div className='relative group'>
-            <div className='w-24 h-24 rounded-2xl overflow-hidden border-2 border-violet-500/30 bg-gradient-to-br from-violet-600/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-violet-500/10'>
+            <div className='w-20 h-20 rounded-xl overflow-hidden border border-rs-border bg-rs-deep-navy flex items-center justify-center shadow-rs-sm'>
               {avatarUrl ? (
                 <img src={avatarUrl} alt='Profile' className='w-full h-full object-cover' />
               ) : (
-                <span className='text-3xl font-black text-white/80'>{getInitials(formData.full_name)}</span>
+                <span className='text-2xl font-semibold text-white font-display'>{getInitials(formData.full_name)}</span>
               )}
             </div>
-            <label className='absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity'>
+            <label className='absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity'>
               <input type='file' accept='image/*' className='hidden' onChange={handleAvatarUpload} disabled={uploading} />
               {uploading ? (
-                <div className='w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin' />
+                <div className='w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin' />
               ) : (
-                <svg className='w-6 h-6 text-white' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z' />
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 13a3 3 0 11-6 0 3 3 0 016 0z' />
+                <svg className='w-5 h-5 text-white' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.8} d='M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z' />
+                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.8} d='M15 13a3 3 0 11-6 0 3 3 0 016 0z' />
                 </svg>
               )}
             </label>
           </div>
 
           <div className='text-center sm:text-left flex-1'>
-            <p className='text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none'>Account Role</p>
-            <p className='text-white font-black uppercase text-lg mt-1 tracking-widest'>{profile?.role || 'User'}</p>
-            <p className='text-slate-500 text-xs mt-2 font-medium'>{email}</p>
-            <p className='text-slate-600 text-[10px] mt-1'>Hover on photo to upload</p>
+            <p className='text-xs font-normal text-rs-muted'>Account Role</p>
+            <div className='mt-1 flex items-center justify-center sm:justify-start gap-2'>
+              <span className='px-2.5 py-0.5 bg-rs-primary/10 border border-rs-primary/20 text-rs-primary rounded-md text-xs font-medium capitalize'>{profile?.role || 'User'}</span>
+            </div>
+            <p className='text-rs-deep-navy text-xs font-mono mt-2'>{email}</p>
+            <p className='text-rs-muted text-[11px] mt-0.5 font-normal'>Hover on photo to update</p>
           </div>
         </div>
 
         {/* Form Fields */}
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+        <div className='grid grid-cols-1 md:grid-cols-2 gap-5'>
           {/* ───── COMMON FIELDS ───── */}
-          <div className='space-y-2'>
-            <label className={labelClass}>Full Name</label>
+          <div className='space-y-1'>
+            <label className={labelClass}>Full name</label>
             <input required type='text' className={inputClass} placeholder='Your full name'
               value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} />
           </div>
-          <div className='space-y-2'>
-            <label className={labelClass}>Email Address</label>
-            <input type='email' className={inputClass + ' opacity-60 cursor-not-allowed'} value={email} readOnly title='Email is managed via authentication' />
+          <div className='space-y-1'>
+            <label className={labelClass}>Email address</label>
+            <input type='email' className={inputClass + ' opacity-75 cursor-not-allowed bg-slate-100 font-mono text-xs'} value={email} readOnly title='Email is managed via authentication' />
           </div>
-          <div className='space-y-2'>
-            <label className={labelClass}>Phone Number</label>
-            <input type='tel' className={inputClass} placeholder='91-XXXXXXXXXX'
+          <div className='space-y-1'>
+            <label className={labelClass}>Phone number</label>
+            <input type='tel' className={inputClass + ' font-mono'} placeholder='+91 98765 43210'
               value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
           </div>
-          <div className='space-y-2'>
+          <div className='space-y-1'>
             <label className={labelClass}>City / Location</label>
             <input type='text' className={inputClass} placeholder='Chennai, India'
               value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
           </div>
-          <div className='space-y-2'>
+          <div className='space-y-1'>
             <label className={labelClass}>District</label>
-            <input type='text' className={inputClass} placeholder='Your district'
+            <input type='text' className={inputClass} placeholder='District'
               value={formData.district} onChange={e => setFormData({...formData, district: e.target.value})} />
           </div>
-          <div className='space-y-2'>
+          <div className='space-y-1'>
             <label className={labelClass}>State</label>
             <input type='text' className={inputClass} placeholder='Tamil Nadu'
               value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} />
@@ -230,18 +232,18 @@ export default function ProfilePage({ userId, profile, onUpdate }) {
           {/* ───── DOCTOR SPECIFIC ───── */}
           {profile?.role === 'doctor' && (
             <>
-              <div className='space-y-2'>
+              <div className='space-y-1'>
                 <label className={labelClass}>Age</label>
-                <input type='number' className={inputClass} placeholder='Age'
+                <input type='number' className={inputClass + ' font-mono'} placeholder='Age'
                   value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} />
               </div>
-              <div className='space-y-2'>
-                <label className={labelClass}>Registration ID (MRN)</label>
-                <input type='text' className={inputClass} placeholder='REG-123456'
+              <div className='space-y-1'>
+                <label className={labelClass}>Medical registration ID (MRN)</label>
+                <input type='text' className={inputClass + ' font-mono'} placeholder='REG-123456'
                   value={formData.registration_id} onChange={e => setFormData({...formData, registration_id: e.target.value})} />
               </div>
-              <div className='space-y-2'>
-                <label className={labelClass}>Specialty</label>
+              <div className='space-y-1'>
+                <label className={labelClass}>Clinical specialty</label>
                 <select className={selectClass}
                   value={formData.specialty} onChange={e => setFormData({...formData, specialty: e.target.value})}>
                   <option>Ophthalmology</option>
@@ -250,18 +252,18 @@ export default function ProfilePage({ userId, profile, onUpdate }) {
                   <option>General Practice</option>
                 </select>
               </div>
-              <div className='space-y-2'>
+              <div className='space-y-1'>
                 <label className={labelClass}>Clinic / Hospital</label>
                 <input type='text' className={inputClass} placeholder='City Retina Care Centre'
                   value={formData.hospital_name} onChange={e => setFormData({...formData, hospital_name: e.target.value})} />
               </div>
-              <div className='space-y-2'>
-                <label className={labelClass}>Contact Number (Clinic)</label>
-                <input type='tel' className={inputClass} placeholder='91-XXXXXXXXXX'
+              <div className='space-y-1'>
+                <label className={labelClass}>Clinic contact number</label>
+                <input type='tel' className={inputClass + ' font-mono'} placeholder='+91 98765 43210'
                   value={formData.contact_number} onChange={e => setFormData({...formData, contact_number: e.target.value})} />
               </div>
-              <div className='space-y-2'>
-                <label className={labelClass}>Website / URL</label>
+              <div className='space-y-1'>
+                <label className={labelClass}>Website URL</label>
                 <input type='url' className={inputClass} placeholder='https://...'
                   value={formData.url} onChange={e => setFormData({...formData, url: e.target.value})} />
               </div>
@@ -271,12 +273,12 @@ export default function ProfilePage({ userId, profile, onUpdate }) {
           {/* ───── PATIENT SPECIFIC ───── */}
           {profile?.role === 'patient' && (
             <>
-              <div className='space-y-2'>
+              <div className='space-y-1'>
                 <label className={labelClass}>Age</label>
-                <input type='number' className={inputClass} placeholder='Age'
+                <input type='number' className={inputClass + ' font-mono'} placeholder='Age'
                   value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} />
               </div>
-              <div className='space-y-2'>
+              <div className='space-y-1'>
                 <label className={labelClass}>Gender</label>
                 <select className={selectClass}
                   value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})}>
@@ -285,13 +287,13 @@ export default function ProfilePage({ userId, profile, onUpdate }) {
                   <option>Other</option>
                 </select>
               </div>
-              <div className='space-y-2'>
-                <label className={labelClass}>Contact Number</label>
-                <input type='tel' className={inputClass} placeholder='91-XXXXXXXXXX'
+              <div className='space-y-1'>
+                <label className={labelClass}>Contact number</label>
+                <input type='tel' className={inputClass + ' font-mono'} placeholder='+91 98765 43210'
                   value={formData.contact_number} onChange={e => setFormData({...formData, contact_number: e.target.value})} />
               </div>
-              <div className='space-y-2 md:col-span-2'>
-                <label className={labelClass}>Diabetic History</label>
+              <div className='space-y-1 md:col-span-2'>
+                <label className={labelClass}>Diabetic history</label>
                 <select className={selectClass}
                   value={formData.diabetic_history} onChange={e => setFormData({...formData, diabetic_history: e.target.value})}>
                   <option>No</option>
@@ -305,12 +307,16 @@ export default function ProfilePage({ userId, profile, onUpdate }) {
           )}
         </div>
 
-        <div className='pt-6'>
-          <button type='submit' disabled={loading || !isChanged} className={isChanged ? 'w-full btn-primary bg-violet-600 hover:bg-violet-500 text-white font-black h-14 animate-pulse ring-4 ring-violet-500/50 transition-all shadow-[0_0_20px_rgba(139,92,246,0.5)]' : 'w-full bg-[#050811] border border-[#1F2937] text-slate-500 font-black h-14 rounded-2xl transition-all'}>
-            {loading ? 'Committing Changes...' : 'Save Profile'}
+        <div className='pt-2'>
+          <button 
+            type='submit' 
+            disabled={loading || !isChanged} 
+            className={isChanged ? 'w-full btn-primary h-11 rounded-xl font-medium text-sm transition-all shadow-rs-sm' : 'w-full bg-rs-ice border border-rs-border text-rs-muted font-normal h-11 rounded-xl transition-all cursor-not-allowed text-sm'}
+          >
+            {loading ? 'Saving Changes...' : isChanged ? 'Save Profile Changes' : 'Profile Up to Date'}
           </button>
           
-          <button type='button' onClick={handleDeleteAccount} disabled={loading} className='w-full mt-4 py-4 rounded-xl border border-red-500/30 text-red-500 font-black uppercase tracking-widest text-[10px] hover:bg-red-500/10 hover:border-red-500/50 transition-all'>
+          <button type='button' onClick={handleDeleteAccount} disabled={loading} className='w-full mt-2.5 py-2.5 rounded-xl border border-rose-200 bg-rose-50/50 text-rose-700 font-medium text-xs hover:bg-rose-100/60 transition-all'>
             Delete Account
           </button>
         </div>

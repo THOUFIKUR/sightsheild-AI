@@ -123,9 +123,9 @@ export default function ABDMIntegration({ reportId, patientId, patientName, onLi
                 <div className="bg-gradient-to-r from-violet-700 to-purple-800 px-6 py-5">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-white font-black text-lg">Link to ABHA Health ID</h2>
-                            <p className="text-violet-200 text-xs mt-0.5">
-                                Ayushman Bharat Digital Mission — Government of India
+                            <h2 className="text-white font-semibold text-base font-display">Link to ABHA Health ID</h2>
+                            <p className="text-white/80 text-xs mt-0.5">
+                                Ayushman Bharat Digital Mission (ABDM) Integration
                             </p>
                         </div>
                         <button
@@ -138,16 +138,16 @@ export default function ABDMIntegration({ reportId, patientId, patientName, onLi
                 <div className="px-6 py-6 space-y-5">
 
                     {/* Patient + report context */}
-                    <div className="bg-slate-800 rounded-xl p-4 border border-slate-700 space-y-1">
+                    <div className="bg-slate-800 rounded-xl p-3.5 border border-slate-700 space-y-1">
                         {patientName && (
                             <p className="text-sm text-slate-300">
-                                <span className="text-slate-500 font-bold uppercase text-xs">Patient</span><br />
-                                <span className="text-white font-bold">{patientName}</span>
+                                <span className="text-slate-400 font-medium text-xs">Patient</span><br />
+                                <span className="text-white font-medium">{patientName}</span>
                             </p>
                         )}
                         {reportId && (
                             <p className="text-sm text-slate-300 mt-2">
-                                <span className="text-slate-500 font-bold uppercase text-xs">Report ID</span><br />
+                                <span className="text-slate-400 font-medium text-xs">Report ID</span><br />
                                 <span className="font-mono text-violet-300 text-xs">{reportId}</span>
                             </p>
                         )}
@@ -156,22 +156,22 @@ export default function ABDMIntegration({ reportId, patientId, patientName, onLi
                     {/* Success state */}
                     {status === 'success' ? (
                         <div className="flex flex-col items-center gap-4 py-4">
-                            <div className="w-16 h-16 rounded-full bg-emerald-900/40 border-2 border-emerald-500 flex items-center justify-center text-3xl">
+                            <div className="w-14 h-14 rounded-full bg-emerald-900/40 border border-emerald-500 flex items-center justify-center text-2xl">
                                 ✅
                             </div>
                             <div className="text-center">
-                                <p className="text-emerald-400 font-black text-lg">Successfully Linked!</p>
-                                <p className="text-slate-400 text-sm mt-1">
+                                <p className="text-emerald-400 font-semibold text-base font-display">Successfully Linked</p>
+                                <p className="text-slate-400 text-xs mt-1">
                                     Report linked to ABHA ID:
                                 </p>
-                                <p className="font-mono text-white font-bold text-base mt-1 bg-slate-800 px-4 py-2 rounded-xl border border-emerald-700 inline-block">
+                                <p className="font-mono text-white font-medium text-sm mt-1 bg-slate-800 px-3 py-1.5 rounded-lg border border-emerald-700 inline-block">
                                     {linked}
                                 </p>
                             </div>
-                            <p className="text-slate-500 text-xs text-center">
-                                This patient's record is now integrated with India's National Digital Health Mission.
+                            <p className="text-slate-400 text-xs text-center font-normal">
+                                Patient record is now synchronized with Ayushman Bharat digital registry.
                             </p>
-                            <button onClick={handleClose} className="btn-primary w-full">
+                            <button onClick={handleClose} className="btn-primary w-full text-sm font-medium">
                                 Done
                             </button>
                         </div>
@@ -179,7 +179,7 @@ export default function ABDMIntegration({ reportId, patientId, patientName, onLi
                         /* Input form */
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold uppercase text-slate-400 mb-2">
+                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                     ABHA Health ID
                                 </label>
                                 <input

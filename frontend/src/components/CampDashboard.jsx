@@ -170,14 +170,13 @@ function DonutChart({ patientRecords }) {
                     ))}
 
                     {/* Center total count */}
-                    <text x={CENTER_COORD} y={CENTER_COORD - 10} textAnchor="middle"
-                        fill="white" fontSize="30" fontWeight="900" fontFamily="Outfit, sans-serif">
+                    <text x={CENTER_COORD} y={CENTER_COORD - 8} textAnchor="middle"
+                        fill="#06284A" fontSize="24" fontWeight="600" fontFamily="'IBM Plex Mono', monospace">
                         {patientRecords.length}
                     </text>
                     <text x={CENTER_COORD} y={CENTER_COORD + 12} textAnchor="middle"
-                        fill="#475569" fontSize="9" fontWeight="800" fontFamily="Outfit, sans-serif"
-                        style={{ textTransform: 'uppercase', letterSpacing: '0.2em' }}>
-                        RECORDS
+                        fill="#64748B" fontSize="10" fontWeight="500" fontFamily="'IBM Plex Sans', sans-serif">
+                        Total records
                     </text>
                 </svg>
             </div>
@@ -197,13 +196,13 @@ function DonutChart({ patientRecords }) {
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                         Grade {gradeIdx} · <span className="text-slate-600">{CLINICAL_GRADES[gradeIdx]}</span>
                                     </span>
-                                    {isHighest && <span className="text-[8px] bg-violet-500/10 border border-violet-500/30 text-violet-400 font-black uppercase tracking-widest px-2 py-0.5 rounded-full">Most Common</span>}
+                                    {isHighest && <span className="text-[8px] bg-rs-ice-50 border border-rs-border text-rs-bright font-black uppercase tracking-widest px-2 py-0.5 rounded-full">Most Common</span>}
                                 </div>
                                 <span className="text-[10px] font-black" style={{ color: colorValue }}>
                                     {frequency} <span className="text-slate-600 font-medium">({percentShare}%)</span>
                                 </span>
                             </div>
-                            <div className="w-full bg-[#0A0F1E] rounded-full h-[6px] overflow-hidden border border-[#1F2937]/70 relative">
+                            <div className="w-full bg-[#F8FAFD] rounded-full h-[6px] overflow-hidden border border-slate-200 relative">
                                 <div
                                     className="h-full rounded-full transition-all duration-700 ease-out"
                                     style={{
@@ -221,17 +220,17 @@ function DonutChart({ patientRecords }) {
     );
 }
 
-function StatCard({ label, targetValue, icon, suffixLabel = '' }) {
+function StatCard({ label, targetValue, icon, suffixLabel = '', color = 'text-rs-deep-navy', bg = 'bg-white border-[#CBDCEE]' }) {
     const displayedValue = useAnimatedCounter(targetValue);
     return (
-        <div className="stat-card group">
-            <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-2xl mb-2 group-hover:scale-110 transition-all font-black">
+        <div className={`group ${bg} border-2 p-5 rounded-2xl shadow-xs hover:shadow-sm transition-all flex flex-col items-center gap-1.5 text-center`}>
+            <div className="w-11 h-11 rounded-xl bg-white border border-black/5 flex items-center justify-center text-xl mb-1 transition-all shadow-xs">
                 {icon}
             </div>
-            <span className="text-3xl font-black text-white tabular-nums">
+            <span className={`text-2xl sm:text-3xl font-semibold font-mono ${color} tabular-nums`}>
                 {displayedValue}{suffixLabel}
             </span>
-            <span className="section-label">{label}</span>
+            <span className="text-xs font-medium text-slate-600">{label}</span>
         </div>
     );
 }
@@ -241,79 +240,78 @@ function PatientCard({ patient, onRemoveRecord, onInspectRecord }) {
     const grade = patient.grade ?? patient.gradeOD ?? 0;
 
     return (
-        <div className="bg-[#111827] border border-[#1F2937] rounded-3xl p-6 group hover:border-violet-500/40 hover:shadow-[0_0_30px_rgba(139,92,246,0.1)] transition-all flex flex-col justify-between relative overflow-hidden animate-fade-in">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-violet-600/5 rounded-full -mr-12 -mt-12 blur-2xl"></div>
-            
+        <div className="bg-white border-2 border-rs-border rounded-2xl p-5 group hover:border-[#9CBBD8] transition-all flex flex-col justify-between relative overflow-hidden shadow-xs animate-fade-in">
             <div>
-                <div className="flex items-center gap-4 mb-5 border-b border-[#1F2937] pb-5">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black shadow-lg border border-white/5 ${
-                        patient.gender === 'Female' ? 'bg-gradient-to-br from-rose-500/20 to-rose-900/40 text-rose-400' : 'bg-gradient-to-br from-violet-500/20 to-violet-900/40 text-violet-400'
+                <div className="flex items-center gap-3.5 mb-4 border-b border-rs-border/80 pb-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-semibold shadow-xs ${
+                        patient.gender === 'Female' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-blue-50 text-rs-primary border border-blue-200'
                     }`}>
                         {patient.name?.[0] || '?'}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2 py-0.5 rounded-lg border text-[8px] font-black uppercase tracking-wider ${
-                                risk === 'LOW' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                                risk === 'MEDIUM' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                                'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                        <div className="flex items-center gap-2 mb-0.5">
+                            <span className={`px-2 py-0.5 rounded-md border text-[10px] font-medium uppercase tracking-wider ${
+                                risk === 'LOW' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+                                risk === 'MEDIUM' ? 'bg-amber-50 border-amber-200 text-amber-800' :
+                                'bg-rose-50 border-rose-200 text-rose-800'
                             }`}>
-                                {risk}
+                                {risk} Risk
                             </span>
-                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest font-mono">
-                                ID: {patient.id?.slice(0, 10)}
+                            <span className="text-xs text-slate-500 font-mono">
+                                RS-{patient.id?.slice(0, 8)}
                             </span>
                         </div>
-                        <h3 className="text-lg font-black text-white truncate group-hover:text-violet-400 transition-colors">
+                        <h3 className="text-base font-semibold text-rs-deep-navy truncate group-hover:text-rs-primary transition-colors">
                             {patient.name}
                         </h3>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">
-                            {patient.age}y • {patient.gender || 'Unknown'}
+                        <p className="text-slate-500 text-xs font-normal">
+                            {patient.age}y &bull; {patient.gender || 'Unknown'}
                         </p>
                     </div>
                 </div>
 
-                <div className="space-y-4 mb-6">
-                    <div className="bg-[#0A0F1E] rounded-2xl p-4 border border-[#1F2937] min-h-[70px]">
-                        <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] mb-2">Automated Assessment</p>
-                        <p className="text-white text-[11px] font-bold leading-relaxed line-clamp-2 italic opacity-80">
+                <div className="space-y-3 mb-5">
+                    <div className="bg-[#F8FAFD] rounded-xl p-3.5 border border-rs-border min-h-[65px]">
+                        <p className="text-[11px] font-medium text-slate-500 uppercase tracking-[0.06em] mb-1">Clinical Assessment</p>
+                        <p className="text-slate-800 text-xs font-normal leading-relaxed line-clamp-2">
                             "{patient.diagnosis || 'No clinical remarks generated.'}"
                         </p>
                     </div>
                     
                     <div className="flex items-center justify-between">
                         <div className="flex flex-col gap-1">
-                            <div className={`text-sm font-black ${GRADE_TEXT_CLASSES[grade]}`}>
+                            <div className={`text-sm font-extrabold ${GRADE_TEXT_CLASSES[grade]}`}>
                                 {CLINICAL_GRADES[grade]}
                             </div>
-                            <div className="text-[9px] uppercase font-black tracking-widest text-slate-600">Clinical Grade</div>
+                            <div className="text-[9px] uppercase font-bold tracking-widest text-slate-500">Clinical Grade</div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                            <div className="text-white text-sm font-black tabular-nums">
+                            <div className="text-rs-deep-navy text-sm font-extrabold tabular-nums">
                                 {Math.round((patient.confidence || 0) * 100)}%
                             </div>
-                            <div className="text-[9px] uppercase font-black tracking-widest text-slate-600">AI Confidence</div>
+                            <div className="text-[9px] uppercase font-bold tracking-widest text-slate-500">AI Confidence</div>
                         </div>
                     </div>
                 </div>
             </div>
 
+
             <div className="flex gap-2">
                 <button 
                     onClick={onInspectRecord}
-                    className="flex-1 py-3.5 rounded-xl bg-violet-600 text-white text-[10px] font-black uppercase tracking-widest transition-all hover:bg-violet-500 shadow-lg shadow-violet-900/20"
+                    className="flex-1 py-3.5 rounded-xl bg-rs-bright text-white text-[10px] font-black uppercase tracking-widest transition-all hover:bg-violet-500 shadow-lg shadow-rs-bright/20"
                 >
                     Open Report
                 </button>
                 <button 
                     onClick={onRemoveRecord}
-                    className="px-4 rounded-xl bg-[#0A0F1E] border border-[#1F2937] text-slate-500 hover:text-rose-500 hover:border-rose-500/30 transition-all"
+                    className="px-4 rounded-xl bg-[#F8FAFD] border border-rs-border text-slate-500 hover:text-rose-500 hover:border-rose-500/30 transition-all"
                 >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
             </div>
             
-            <div className="mt-4 pt-4 border-t border-[#1F2937]/50 flex items-center justify-between">
+            <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between">
                 <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">
                     Captured {formatTime(patient.timestamp).split(',')[1]}
                 </span>
@@ -402,74 +400,82 @@ export default function CampDashboard() {
     }, [visiblePatientQueue, currentPage]);
 
     return (
-        <div className="space-y-8 pb-10 font-['Outfit'] animate-fade-in">
+        <div className="space-y-6 pb-10 animate-fade-in">
 
             {/* HEADER */}
-            <div className="flex items-end justify-between flex-wrap gap-4 px-2">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => window.history.back()} className="flex items-center justify-center w-10 h-10 rounded-2xl bg-violet-600/10 border border-violet-500/20 text-violet-400 hover:bg-violet-600 hover:text-white transition-all group shrink-0">
-                        <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
+            <div className="flex items-end justify-between flex-wrap gap-4 px-1">
+                <div className="flex items-center gap-3.5">
+                    <button onClick={() => window.history.back()} className="flex items-center justify-center w-10 h-10 rounded-xl bg-white border-2 border-rs-border text-rs-deep-navy hover:bg-rs-ice transition-all group shrink-0 shadow-xs">
+                        <svg className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
                     </button>
                     <div>
-                        <h1 className="text-4xl font-black text-white tracking-tighter leading-none">Clinical Records</h1>
-                        <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-2">Vision Camp Operations · {currentSessionDate}</p>
+                        <h1 className="text-2xl sm:text-3xl font-semibold text-rs-deep-navy tracking-tight leading-tight">Patient Records & Camp Operations</h1>
+                        <p className="text-slate-500 font-normal text-xs mt-1">Vision camp screening records &bull; {currentSessionDate}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                     <button 
                         onClick={() => exportPatientDataToCSV(patientRecords)} 
                         disabled={!patientRecords.length}
-                        className='bg-violet-600 hover:bg-violet-500 text-white shadow-[0_0_20px_rgba(139,92,246,0.5)] border-none rounded-2xl py-3.5 px-6 h-auto text-[10px] uppercase tracking-[0.2em] font-black animate-pulse transition-all'
+                        className='btn-primary py-2 px-4 h-auto text-xs font-medium rounded-xl disabled:opacity-50'
                     >
-                        Export CSV
+                        Export CSV Report
                     </button>
-                    <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 shadow-lg shadow-emerald-500/5">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 shadow-xs">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-emerald-400 text-[10px] font-black uppercase tracking-widest leading-none">Live Sync active</span>
+                        <span className="text-emerald-800 text-xs font-medium leading-none">Live Sync active</span>
                     </div>
                 </div>
             </div>
 
             {/* MODE BANNER */}
             {mode === 'preventative' && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between text-amber-500 animate-fade-in shadow-lg shadow-amber-500/5">
+                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between text-amber-900 animate-fade-in shadow-xs">
                     <div className="flex items-center gap-3">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                        <p className="text-xs font-black uppercase tracking-widest">PREVENTATIVE MODE ACTIVE — Grade 1+ cases with Risk Score &gt; 35 are flagged</p>
+                        <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        <p className="text-xs font-bold uppercase tracking-wide">PREVENTATIVE MODE ACTIVE — Grade 1+ cases with Risk Score &gt; 35 are flagged</p>
                     </div>
                 </div>
             )}
 
-            {/* METRICS */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* METRICS ROW */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard 
                     label="Total Scans" 
                     targetValue={patientRecords.length} 
-                    icon={<svg className="w-6 h-6 text-violet-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} 
+                    icon={<svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} 
+                    color="text-blue-700"
+                    bg="bg-blue-50/80 border-blue-200"
                 />
                 <StatCard 
                     label="High Risk" 
                     targetValue={highRiskCount} 
-                    icon={<svg className="w-6 h-6 text-rose-500 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>} 
+                    icon={<svg className="w-6 h-6 text-rose-600 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>} 
+                    color="text-rose-700"
+                    bg="bg-rose-50/80 border-rose-200"
                 />
                 <StatCard 
                     label="Avg Scan Time" 
                     targetValue={28} 
-                    icon={<svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} 
+                    icon={<svg className="w-6 h-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} 
                     suffixLabel="s" 
+                    color="text-indigo-700"
+                    bg="bg-indigo-50/80 border-indigo-200"
                 />
                 <StatCard 
                     label="Total Referrals" 
                     targetValue={totalReferralsNeeded} 
-                    icon={<svg className="w-6 h-6 text-amber-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>} 
+                    icon={<svg className="w-6 h-6 text-amber-600 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>} 
+                    color="text-amber-700"
+                    bg="bg-amber-50/80 border-amber-200"
                 />
             </div>
 
             {/* MAIN QUEUE */}
-            <div className="card-elevated bg-[#111827]">
+            <div className="card-elevated bg-white border-2 border-[#CBDCEE] shadow-sm rounded-3xl p-6 sm:p-8">
                 <div className="flex items-center justify-between mb-8 px-2">
                     <div>
-                        <h2 className="text-2xl font-black text-white tracking-tight">Patient Registry</h2>
+                        <h2 className="text-2xl font-extrabold text-rs-deep-navy tracking-tight">Patient Registry</h2>
                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">
                             Showing {visiblePatientQueue.length} of {patientRecords.length} clinical profiles
                         </p>
@@ -487,13 +493,13 @@ export default function CampDashboard() {
                             placeholder="Find by name, patient ID, or diagnosis result..."
                             value={searchQueryString}
                             onChange={e => setSearchQueryString(e.target.value)}
-                            className="input pl-12 py-4 bg-[#0A0F1E] text-sm font-medium border-[#1F2937]"
+                            className="input pl-12 py-4 bg-[#F8FAFD] text-sm font-medium border-rs-border"
                         />
                     </div>
-                    <div className="flex bg-[#0A0F1E] p-1.5 rounded-2xl border border-[#1F2937] gap-1">
+                    <div className="flex bg-[#F8FAFD] p-1.5 rounded-2xl border border-rs-border gap-1">
                         {[['all','All'],['high','🚨 Risk'],['refer','⚠ Refer'],].map(([filterKey, filterLabel]) => (
                             <button key={filterKey} onClick={() => setActiveGradeFilter(filterKey)}
-                                className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeGradeFilter === filterKey ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/40' : 'text-slate-500 hover:text-slate-300'}`}>
+                                className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all ${activeGradeFilter === filterKey ? 'bg-rs-bright text-white shadow-lg shadow-rs-bright/20' : 'text-slate-500 hover:text-slate-300'}`}>
                                 {filterLabel}
                             </button>
                         ))}
@@ -502,11 +508,11 @@ export default function CampDashboard() {
 
                 {isDataLoading ? (
                     <div className="py-24 text-center">
-                        <div className="animate-spin w-8 h-8 border-4 border-violet-500/20 border-t-violet-500 rounded-full mx-auto mb-4"></div>
+                        <div className="animate-spin w-8 h-8 border-4 border-rs-border border-t-violet-500 rounded-full mx-auto mb-4"></div>
                         <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px]">Synchronizing clinical data…</p>
                     </div>
                 ) : visiblePatientQueue.length === 0 ? (
-                    <div className="py-24 text-center bg-[#0A0F1E]/50 rounded-[40px] border border-[#1F2937] border-dashed">
+                    <div className="py-24 text-center bg-[#F8FAFD] rounded-[40px] border border-rs-border border-dashed">
                         <p className="text-slate-600 font-black uppercase tracking-[0.2em] text-xs">
                             {searchQueryString || activeGradeFilter !== 'all' ? 'No matches found for filters' : 'Queue is currently empty'}
                         </p>
@@ -530,7 +536,7 @@ export default function CampDashboard() {
                                 <button
                                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                     disabled={currentPage === 1}
-                                    className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#0A0F1E] border border-[#1F2937] text-slate-400 hover:text-white disabled:opacity-20 transition-all font-black"
+                                    className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#F8FAFD] border border-rs-border text-slate-400 hover:text-white disabled:opacity-20 transition-all font-black"
                                 >
                                     ←
                                 </button>
@@ -540,7 +546,7 @@ export default function CampDashboard() {
                                 <button
                                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                     disabled={currentPage === totalPages}
-                                    className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#0A0F1E] border border-[#1F2937] text-slate-400 hover:text-white disabled:opacity-20 transition-all font-black"
+                                    className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#F8FAFD] border border-rs-border text-slate-400 hover:text-white disabled:opacity-20 transition-all font-black"
                                 >
                                     →
                                 </button>
@@ -552,17 +558,17 @@ export default function CampDashboard() {
 
             {/* DISTRIBUTION GRID */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="card-elevated bg-[#111827]">
+                <div className="card-elevated bg-white">
                     <h2 className="text-xl font-black text-white mb-10 tracking-tight uppercase">Severity Spread</h2>
                     <DonutChart patientRecords={patientRecords} />
                 </div>
 
-                <div className='card-elevated bg-[#111827] flex flex-col'>
+                <div className='card-elevated bg-white flex flex-col'>
                     <div className="flex items-center justify-between mb-10">
                         <h2 className='text-xl font-black text-white tracking-tight uppercase'>System Activity</h2>
                         <button 
                             onClick={() => setIsAuditLogVisible(prev => !prev)}
-                            className='text-[9px] font-black text-violet-400 uppercase tracking-widest hover:text-white px-3 py-1 bg-violet-500/10 rounded-lg border border-violet-500/20'
+                            className='text-[9px] font-black text-rs-bright uppercase tracking-widest hover:text-white px-3 py-1 bg-rs-ice-50 rounded-lg border border-rs-border'
                         >
                             {isAuditLogVisible ? 'Hide Logs' : 'View Logs'}
                         </button>
@@ -571,7 +577,7 @@ export default function CampDashboard() {
                         <div className="overflow-y-auto max-h-[300px] pr-2 scrollbar-style">
                             <table className='w-full text-left'>
                                 <thead>
-                                    <tr className="border-b border-[#1F2937]">
+                                    <tr className="border-b border-rs-border">
                                         <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Event</th>
                                         <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest">Context</th>
                                         <th className="pb-3 text-[9px] font-black text-slate-600 uppercase tracking-widest text-right">Time</th>
@@ -590,7 +596,7 @@ export default function CampDashboard() {
                         </div>
                     ) : (
                         <div className="flex-1 flex flex-col items-center justify-center text-center py-10">
-                             <div className="w-16 h-16 rounded-full bg-[#0A0F1E] flex items-center justify-center mb-4 text-2xl border border-[#1F2937] shadow-inner">
+                             <div className="w-16 h-16 rounded-full bg-[#F8FAFD] flex items-center justify-center mb-4 text-2xl border border-rs-border shadow-inner">
                                 <svg className="w-6 h-6 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                              </div>
                              <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Operational logs minimized</p>
@@ -602,27 +608,27 @@ export default function CampDashboard() {
             {/* MODAL / INSPECTOR */}
             {inspectedPatient && (
                 <div
-                    className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0A0F1E]/95 backdrop-blur-xl animate-fade-in'
+                    className='fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xl animate-fade-in'
                     onClick={() => setInspectedPatient(null)}
                 >
                     <div
-                        className='bg-[#111827] border border-[#1F2937] rounded-[40px] w-full max-w-2xl shadow-[0_32px_120px_-20px_rgba(0,0,0,1)] flex flex-col max-h-[95vh] overflow-hidden'
+                        className='bg-white border border-rs-border rounded-[40px] w-full max-w-2xl shadow-[0_32px_120px_-20px_rgba(0,0,0,1)] flex flex-col max-h-[95vh] overflow-hidden'
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Modal Header */}
-                        <div className='flex items-center justify-between px-10 py-8 border-b border-[#1F2937]'>
+                        <div className='flex items-center justify-between px-10 py-8 border-b border-rs-border'>
                              <div className="flex items-center gap-6">
-                                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-blue-600 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-violet-900/40">
+                                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rs-primary to-rs-bright flex items-center justify-center text-white font-black text-2xl shadow-md">
                                     {inspectedPatient.name.charAt(0)}
                                 </div>
                                 <div>
-                                    <h2 className='text-3xl font-black text-white leading-tight tracking-tight'>{inspectedPatient.name}</h2>
-                                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.25em] mt-1 opacity-60">Clinical Reference: {inspectedPatient.id}</p>
+                                    <h2 className='text-3xl font-extrabold text-rs-deep-navy leading-tight tracking-tight'>{inspectedPatient.name}</h2>
+                                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.25em] mt-1">Clinical Reference: {inspectedPatient.id}</p>
                                 </div>
                              </div>
                             <button
                                 onClick={() => setInspectedPatient(null)}
-                                className='w-12 h-12 flex items-center justify-center rounded-2xl bg-[#0A0F1E] border border-[#1F2937] text-slate-500 hover:text-white hover:bg-rose-600 hover:border-rose-500 transition-all'
+                                className='w-12 h-12 flex items-center justify-center rounded-2xl bg-[#F8FAFD] border border-rs-border text-slate-500 hover:text-white hover:bg-rose-600 hover:border-rose-500 transition-all'
                             >
                                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
@@ -633,36 +639,36 @@ export default function CampDashboard() {
                             
                             {/* Bio Grid */}
                             <div className="grid grid-cols-3 gap-6">
-                                <div className="bg-[#0A0F1E] p-5 rounded-[24px] border border-[#1F2937] shadow-inner">
-                                    <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Patient Demographics</p>
-                                    <p className="text-white font-black text-xl">{inspectedPatient.age}y / {inspectedPatient.gender}</p>
+                                <div className="bg-[#F8FAFD] p-5 rounded-[24px] border-2 border-[#CBDCEE] shadow-xs">
+                                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">Patient Demographics</p>
+                                    <p className="text-rs-deep-navy font-extrabold text-xl">{inspectedPatient.age}y / {inspectedPatient.gender}</p>
                                 </div>
-                                <div className="bg-[#0A0F1E] p-5 rounded-[24px] border border-[#1F2937] shadow-inner">
-                                    <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">History</p>
-                                    <p className="text-white font-black text-xl">{inspectedPatient.diabeticSince} Yrs Diabetic</p>
+                                <div className="bg-[#F8FAFD] p-5 rounded-[24px] border-2 border-[#CBDCEE] shadow-xs">
+                                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">History</p>
+                                    <p className="text-rs-deep-navy font-extrabold text-xl">{inspectedPatient.diabeticSince} Yrs Diabetic</p>
                                 </div>
-                                <div className="bg-[#0A0F1E] p-5 rounded-[24px] border border-[#1F2937] shadow-inner flex flex-col justify-center">
-                                    <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-2">Risk Status</p>
+                                <div className="bg-[#F8FAFD] p-5 rounded-[24px] border-2 border-[#CBDCEE] shadow-xs flex flex-col justify-center">
+                                    <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">Risk Status</p>
                                     <div className={`grade-pill text-[10px] py-1.5 ${getRiskClass(inspectedPatient.risk)}`}>{inspectedPatient.risk} Tier</div>
                                 </div>
                             </div>
 
                             {/* Assessment Results */}
-                            <div className="relative group p-8 rounded-[40px] overflow-hidden border border-violet-500/30">
-                                <div className="absolute inset-0 bg-gradient-to-br from-violet-600/10 via-transparent to-blue-600/5 z-0" />
+                            <div className="relative group p-8 rounded-[40px] overflow-hidden border-2 border-[#CBDCEE] bg-white shadow-xs">
+                                <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-rs-ice-50 z-0 pointer-events-none" />
                                 <div className="absolute top-0 right-0 p-8 z-10 text-right">
-                                     <p className="text-violet-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">AI Confidence</p>
-                                     <p className="text-white font-black text-4xl tabular-nums tracking-tighter">{Math.round(inspectedPatient.confidence * 100)}%</p>
+                                     <p className="text-rs-primary text-[10px] font-extrabold uppercase tracking-[0.2em] mb-1">AI Confidence</p>
+                                     <p className="text-rs-deep-navy font-extrabold text-4xl tabular-nums tracking-tighter">{Math.round(inspectedPatient.confidence * 100)}%</p>
                                 </div>
                                 
                                 <div className="relative z-10 space-y-4">
-                                    <p className="text-violet-400 text-[10px] font-black uppercase tracking-[0.3em]">Automated Diagnosis</p>
-                                    <h3 className="text-4xl font-black text-white tracking-tight leading-[1.1] max-w-sm">
+                                    <p className="text-rs-primary text-[10px] font-extrabold uppercase tracking-[0.3em]">Automated Diagnosis</p>
+                                    <h3 className="text-3xl font-extrabold text-rs-deep-navy tracking-tight leading-[1.1] max-w-sm">
                                         {inspectedPatient.diagnosis}
                                     </h3>
                                     <div className="pt-4 flex items-start gap-4">
-                                        <div className="w-1 h-12 bg-violet-600 rounded-full" />
-                                        <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-sm italic">
+                                        <div className="w-1 h-12 bg-rs-bright rounded-full shrink-0" />
+                                        <p className="text-slate-600 text-sm font-medium leading-relaxed max-w-sm italic">
                                             {inspectedPatient.urgency || "No immediate clinical intervention required. Proceed with annual routine retinopathy screening."}
                                         </p>
                                     </div>
@@ -672,13 +678,13 @@ export default function CampDashboard() {
                             {/* Imagery Section */}
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-white font-black uppercase tracking-[0.2em] text-[10px] ml-1 opacity-70">Diagnostic Imaging / AI Interpretation</h3>
+                                    <h3 className="text-rs-deep-navy font-extrabold uppercase tracking-[0.2em] text-[11px] ml-1">Diagnostic Imaging / AI Interpretation</h3>
                                 </div>
                                 
                                 <div className="grid grid-cols-2 gap-6">
                                     {/* Right Eye */}
                                     <div className="space-y-4">
-                                        <div className="bg-[#0A0F1E] p-3 rounded-[32px] border border-[#1F2937] group">
+                                        <div className="bg-[#F8FAFD] p-3 rounded-[32px] border border-rs-border group">
                                             <p className="text-[9px] font-black text-slate-700 uppercase tracking-[0.3em] mb-3 text-center">Right Eye (OD)</p>
                                             <div className="relative rounded-2xl overflow-hidden aspect-square shadow-2xl">
                                                 <img src={inspectedPatient.rightEye?.image_url || inspectedPatient.od_image_url || inspectedPatient.image_url} className="w-full h-full object-cover bg-black" alt="OD" />
@@ -688,9 +694,9 @@ export default function CampDashboard() {
                                                 <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 text-[8px] font-black text-white uppercase tracking-widest">Original Scan</div>
                                             </div>
                                             {(inspectedPatient.rightEye?.heatmap_url || inspectedPatient.od_heatmap_url || inspectedPatient.heatmap_url) && (
-                                                <div className="mt-3 relative rounded-2xl overflow-hidden aspect-square border border-violet-500/20">
+                                                <div className="mt-3 relative rounded-2xl overflow-hidden aspect-square border border-rs-border">
                                                     <img src={inspectedPatient.rightEye?.heatmap_url || inspectedPatient.od_heatmap_url || inspectedPatient.heatmap_url} className="w-full h-full object-cover bg-black" alt="OD AI" />
-                                                    <div className="absolute bottom-3 left-3 px-3 py-1 bg-violet-600/80 backdrop-blur-md rounded-lg border border-violet-400/20 text-[8px] font-black text-white uppercase tracking-widest">Lesion Detection</div>
+                                                    <div className="absolute bottom-3 left-3 px-3 py-1 bg-rs-bright/80 backdrop-blur-md rounded-lg border border-violet-400/20 text-[8px] font-black text-white uppercase tracking-widest">Lesion Detection</div>
                                                 </div>
                                             )}
                                         </div>
@@ -698,7 +704,7 @@ export default function CampDashboard() {
 
                                     {/* Left Eye */}
                                     <div className="space-y-4">
-                                        <div className="bg-[#0A0F1E] p-3 rounded-[32px] border border-[#1F2937] group">
+                                        <div className="bg-[#F8FAFD] p-3 rounded-[32px] border border-rs-border group">
                                             <p className="text-[9px] font-black text-slate-700 uppercase tracking-[0.3em] mb-3 text-center">Left Eye (OS)</p>
                                             {inspectedPatient.leftEye?.image_url || inspectedPatient.os_image_url ? (
                                                 <div className="space-y-3">
@@ -710,15 +716,15 @@ export default function CampDashboard() {
                                                         <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 text-[8px] font-black text-white uppercase tracking-widest">Original Scan</div>
                                                     </div>
                                                     {(inspectedPatient.leftEye?.heatmap_url || inspectedPatient.os_heatmap_url) && (
-                                                        <div className="relative rounded-2xl overflow-hidden aspect-square border border-violet-500/20">
+                                                        <div className="relative rounded-2xl overflow-hidden aspect-square border border-rs-border">
                                                             <img src={inspectedPatient.leftEye?.heatmap_url || inspectedPatient.os_heatmap_url} className="w-full h-full object-cover bg-black" alt="OS AI" />
-                                                            <div className="absolute bottom-3 left-3 px-3 py-1 bg-violet-600/80 backdrop-blur-md rounded-lg border border-violet-400/20 text-[8px] font-black text-white uppercase tracking-widest">Lesion Detection</div>
+                                                            <div className="absolute bottom-3 left-3 px-3 py-1 bg-rs-bright/80 backdrop-blur-md rounded-lg border border-violet-400/20 text-[8px] font-black text-white uppercase tracking-widest">Lesion Detection</div>
                                                         </div>
                                                     )}
                                                 </div>
                                             ) : (
-                                                <div className="aspect-square flex items-center justify-center flex-col gap-4 rounded-[28px] bg-[#0D1221] border border-dashed border-[#1F2937] transition-all group-hover:bg-[#111827]">
-                                                    <div className="w-16 h-16 rounded-full bg-[#111827] flex items-center justify-center text-3xl font-black text-slate-800 border border-[#1F2937]">?</div>
+                                                <div className="aspect-square flex items-center justify-center flex-col gap-4 rounded-[28px] bg-[#F1F6FB] border border-dashed border-rs-border transition-all group-hover:bg-white">
+                                                    <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-3xl font-black text-slate-800 border border-rs-border">?</div>
                                                     <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.4em] text-center px-6 leading-relaxed">Monocular Screening<br/>OS Data Unavailable</p>
                                                 </div>
                                             )}
@@ -729,14 +735,14 @@ export default function CampDashboard() {
                         </div>
 
                         {/* Modal Footer */}
-                        <div className='px-10 py-8 border-t border-[#1F2937] flex gap-4'>
+                        <div className='px-10 py-8 border-t border-rs-border flex gap-4'>
                             <button
                                 onClick={() => setInspectedPatient(null)}
                                 className='px-10 btn-secondary py-5 rounded-3xl font-black uppercase tracking-[0.2em] text-[11px]'
                             >
                                 Close Inspector
                             </button>
-                            <Link to={`/results?id=${inspectedPatient.id}`} state={{ record: inspectedPatient }} className="flex-1 btn-primary py-5 rounded-3xl font-black uppercase tracking-[0.2em] text-[11px] text-center shadow-2xl shadow-violet-900/40">
+                            <Link to={`/results?id=${inspectedPatient.id}`} state={{ record: inspectedPatient }} className="flex-1 btn-primary py-5 rounded-3xl font-black uppercase tracking-[0.2em] text-[11px] text-center shadow-2xl shadow-rs-bright/20">
                                 View Full Clinical Report →
                             </Link>
                         </div>

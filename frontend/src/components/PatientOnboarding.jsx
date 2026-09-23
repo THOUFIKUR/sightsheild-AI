@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 
 /**
- * PatientOnboarding — Simple form for individuals.
- * Captures all required Supabase profile columns.
+ * PatientOnboarding — Form for individuals/patients.
+ * Captures required Supabase profile columns.
  */
 export default function PatientOnboarding({ userId, onComplete }) {
   const [loading, setLoading] = useState(false);
@@ -59,38 +59,42 @@ export default function PatientOnboarding({ userId, onComplete }) {
     }
   };
 
-  const inputClass = 'w-full bg-[#0A0F1E] border border-[#1F2937] rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none transition-all text-base placeholder:text-slate-600';
-  const selectClass = inputClass + ' appearance-none';
-  const labelClass = 'text-[10px] font-black text-slate-500 uppercase tracking-widest';
+  const inputClass = 'w-full bg-rs-ice border border-rs-border rounded-xl px-3.5 py-2.5 text-rs-deep-navy font-normal focus:border-rs-primary focus:bg-white outline-none transition-all text-sm placeholder:text-rs-muted/50 shadow-xs';
+  const selectClass = inputClass + ' appearance-none cursor-pointer';
+  const labelClass = 'text-xs font-medium text-rs-deep-navy block mb-1';
 
   return (
-    <div className='min-h-screen bg-[#0A0F1E] flex flex-col items-center justify-center py-8 px-4 sm:px-6 font-["Outfit"] pb-safe'>
-      <div className='max-w-2xl w-full space-y-10 animate-fade-in'>
-        <div className='text-center space-y-3'>
-          <h1 className='text-4xl font-black text-white tracking-tighter'>Personal <span className='text-blue-500'>Health Profile</span></h1>
-          <p className='text-slate-500 font-medium'>Please finalize your profile details to track your diagnostic screening history.</p>
+    <div className='min-h-screen bg-rs-ice flex flex-col items-center justify-center py-8 px-4 sm:px-6 pb-safe'>
+      <div className='max-w-2xl w-full space-y-6 animate-fade-in'>
+        <div className='text-center space-y-2'>
+          <h1 className='text-2xl md:text-3xl font-semibold text-rs-deep-navy tracking-tight font-display'>
+            Personal Health Profile
+          </h1>
+          <p className='text-rs-muted font-normal text-sm'>
+            Please finalize your profile details to track your diagnostic screening history.
+          </p>
         </div>
 
         {error && (
-          <div className='bg-red-500/10 border border-red-500/20 p-4 rounded-2xl text-red-400 text-sm font-bold text-center'>
+          <div className='bg-rose-50 border border-rose-200 p-3.5 rounded-xl text-rose-800 text-xs font-medium text-center'>
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className='card-elevated bg-[#111827] p-5 sm:p-8 md:p-10 space-y-6'>
-          <div className='space-y-2'>
-            <label className={labelClass}>Full Name</label>
-            <input required type='text' placeholder='Your Full Name' className={inputClass}
+        <form onSubmit={handleSubmit} className='bg-white border border-rs-border rounded-2xl p-6 sm:p-8 space-y-5 shadow-rs-sm'>
+          <div className='space-y-1'>
+            <label className={labelClass}>Full name</label>
+            <input required type='text' placeholder='Your full name' className={inputClass}
               value={formData.full_name} onChange={e => setFormData({ ...formData, full_name: e.target.value })} />
           </div>
 
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6'>
-            <div className='space-y-2'>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5'>
+            <div className='space-y-1'>
               <label className={labelClass}>Age</label>
-              <input required type='number' placeholder='Age' className={inputClass}
+              <input required type='number' placeholder='Age' className={inputClass + ' font-mono'}
                 value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })} />
             </div>
-            <div className='space-y-2'>
+            <div className='space-y-1'>
               <label className={labelClass}>Gender</label>
               <select className={selectClass}
                 value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })}>
@@ -101,8 +105,8 @@ export default function PatientOnboarding({ userId, onComplete }) {
             </div>
           </div>
 
-          <div className='space-y-2'>
-            <label className={labelClass}>Diabetic History</label>
+          <div className='space-y-1'>
+            <label className={labelClass}>Diabetic history</label>
             <select className={selectClass}
               value={formData.diabetic_history} onChange={e => setFormData({ ...formData, diabetic_history: e.target.value })}>
               <option>No</option>
@@ -113,47 +117,47 @@ export default function PatientOnboarding({ userId, onComplete }) {
             </select>
           </div>
 
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6'>
-            <div className='space-y-2'>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5'>
+            <div className='space-y-1'>
               <label className={labelClass}>City / Location</label>
               <input required type='text' placeholder='Chennai, India' className={inputClass}
                 value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
             </div>
-            <div className='space-y-2'>
+            <div className='space-y-1'>
               <label className={labelClass}>District</label>
-              <input type='text' placeholder='Your district' className={inputClass}
+              <input type='text' placeholder='District' className={inputClass}
                 value={formData.district} onChange={e => setFormData({ ...formData, district: e.target.value })} />
             </div>
           </div>
 
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6'>
-            <div className='space-y-2'>
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5'>
+            <div className='space-y-1'>
               <label className={labelClass}>State</label>
               <input type='text' placeholder='Tamil Nadu' className={inputClass}
                 value={formData.state} onChange={e => setFormData({ ...formData, state: e.target.value })} />
             </div>
-            <div className='space-y-2'>
-              <label className={labelClass}>Phone Number</label>
-              <input required type='tel' placeholder='91-XXXXXXXXXX' className={inputClass}
+            <div className='space-y-1'>
+              <label className={labelClass}>Phone number</label>
+              <input required type='tel' placeholder='+91 98765 43210' className={inputClass + ' font-mono'}
                 value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
             </div>
           </div>
 
-          <div className='space-y-2'>
-            <label className={labelClass}>Contact Number (Alternative)</label>
-            <input type='tel' placeholder='Optional alternative number' className={inputClass}
+          <div className='space-y-1'>
+            <label className={labelClass}>Alternative contact number (Optional)</label>
+            <input type='tel' placeholder='Optional alternative phone' className={inputClass + ' font-mono'}
               value={formData.contact_number} onChange={e => setFormData({ ...formData, contact_number: e.target.value })} />
           </div>
 
           {/* Email from Auth (read-only info) */}
-          <div className='space-y-2'>
-            <label className={labelClass}>Email (from your login)</label>
-            <input type='email' className={inputClass + ' opacity-60 cursor-not-allowed'} value={email} readOnly />
+          <div className='space-y-1'>
+            <label className={labelClass}>Registered email</label>
+            <input type='email' className={inputClass + ' opacity-75 cursor-not-allowed bg-slate-100 font-mono text-xs'} value={email} readOnly />
           </div>
 
           <button type='submit' disabled={loading}
-            className='w-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-black uppercase tracking-widest h-14 rounded-2xl shadow-lg shadow-blue-900/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed'>
-            {loading ? 'Finalizing Profile...' : 'Create Account'}
+            className='w-full btn-primary h-11 rounded-xl text-sm font-medium transition-all shadow-rs-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer'>
+            {loading ? 'Finalizing Profile...' : 'Complete Profile'}
           </button>
         </form>
       </div>
