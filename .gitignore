@@ -53,3 +53,29 @@ backend/models/yolo_lesions_int8.onnx
 *.zip
 *.asv
 matlab/**/*.asv
+
+# ─── Real Dataset Files (IDRiD / DRIVE) ────────────────────────────────────
+# Large fundus image files are NOT committed to git.
+# Ground-truth CSVs and small mask files MAY be committed if size permits.
+# To use: extract ZIPs to data/idrid/ and data/drive/ as documented in README.
+
+# IDRiD fundus images (large JPEGs — 4288x2848, ~1MB each)
+data/idrid/A. Segmentation/1. Original Images/
+data/idrid/B. Disease Grading/1. Original Images/
+data/idrid/C. Localization/1. Original Images/
+
+# IDRiD segmentation masks (TIF masks, ~700KB each; 54+27 = 81 images × 5 types)
+data/idrid/A. Segmentation/2. All Segmentation Groundtruths/
+
+# DRIVE fundus images (large TIF)
+data/drive/training/images/
+data/drive/test/images/
+# DRIVE vessel masks (GIF, small — exclude only if needed)
+data/drive/training/mask/
+data/drive/test/mask/
+
+# Placeholder / synthetic sample images from before real data
+data/idrid/images/
+data/idrid/groundtruth/
+data/drive/images/
+data/drive/1st_manual/

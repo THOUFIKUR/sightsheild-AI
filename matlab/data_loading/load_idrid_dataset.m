@@ -170,59 +170,137 @@ else
 end
 
 % ─── Localization subset ────────────────────────────────────────────────────
+% Real IDRiD C. Localization structure (from official dataset):
+%   OD CSV:    C. Localization/2. Groundtruths/1. Optic Disc Center Location/
+%              a. IDRiD_OD_Center_Training Set_Markups.csv     (train split)
+%              b. IDRiD_OD_Center_Testing Set_Markups.csv      (test split)
+%   Fovea CSV: C. Localization/2. Groundtruths/2. Fovea Center Location/
+%              IDRiD_Fovea_Center_Training Set_Markups.csv     (train split)
+%              IDRiD_Fovea_Center_Testing Set_Markups.csv      (test split)
+%   All CSVs:  Image No | X- Coordinate | Y - Coordinate | (trailing empty cols)
+%
+% Both CSVs are read separately and merged on Image No.
 localization = struct();
 localization.available = false;
 
-locDir = fullfile(dataRoot, 'C. Localization');
+locDir     = fullfile(dataRoot, 'C. Localization');
+odGtDir    = fullfile(locDir, '2. Groundtruths', '1. Optic Disc Center Location');
+foveaGtDir = fullfile(locDir, '2. Groundtruths', '2. Fovea Center Location');
 
-% Try multiple plausible CSV names
-locCsvCandidates = {
-    fullfile(locDir, 'IDRiD_OD_Fovea_Localization.csv');
-    fullfile(locDir, 'IDRiD_Localization_Training.csv');
-    fullfile(locDir, 'IDRiD_Localization_Testing.csv');
-    fullfile(locDir, 'Localization.csv');
-    fullfile(dataRoot, 'B. Disease Grading', '2. Groundtruths', 'a. IDRiD_Disease Grading_Training Labels.csv');
-};
-
-locCsv = '';
-for ci = 1:numel(locCsvCandidates)
-    if isfile(locCsvCandidates{ci})
-        locCsv = locCsvCandidates{ci};
-        break;
-    end
+if strcmp(split, 'train')
+    odCsvCandidates = {
+        fullfile(odGtDir, 'a. IDRiD_OD_Center_Training Set_Markups.csv');
+        fullfile(odGtDir, 'IDRiD_OD_Center_Training Set_Markups.csv');
+    };
+    foveaCsvCandidates = {
+        fullfile(foveaGtDir, 'IDRiD_Fovea_Center_Training Set_Markups.csv');
+    };
+else
+    odCsvCandidates = {
+        fullfile(odGtDir, 'b. IDRiD_OD_Center_Testing Set_Markups.csv');
+        fullfile(odGtDir, 'IDRiD_OD_Center_Testing Set_Markups.csv');
+    };
+    foveaCsvCandidates = {
+        fullfile(foveaGtDir, 'IDRiD_Fovea_Center_Testing Set_Markups.csv');
+    };
 end
 
-if isempty(locCsv)
-    fprintf('[IDRiD Loader] NOTE: Localization CSV not found. OD/Fovea validation cannot run.\n');
+odCsv    = '';
+foveaCsv = '';
+for ci = 1:numel(odCsvCandidates)
+    if isfile(odCsvCandidates{ci}), odCsv = odCsvCandidates{ci}; break; end
+end
+for ci = 1:numel(foveaCsvCandidates)
+    if isfile(foveaCsvCandidates{ci}), foveaCsv = foveaCsvCandidates{ci}; break; end
+end
+
+if isempty(odCsv) && isempty(foveaCsv)
+    fprintf('[IDRiD Loader] NOTE: C. Localization CSVs not found. OD/Fovea validation cannot run.\n');
+    fprintf('  Expected OD CSV at:    %s\n', odGtDir);
+    fprintf('  Expected Fovea CSV at: %s\n', foveaGtDir);
     localization.image_ids = {};
-    localization.od_x = [];
-    localization.od_y = [];
+    localization.od_x    = [];
+    localization.od_y    = [];
     localization.fovea_x = [];
     localization.fovea_y = [];
 else
     try
-        locTbl = readtable(locCsv);
-        lColNames = lower(locTbl.Properties.VariableNames);
-        idCol  = find(contains(lColNames,'image'),1);
-        odxCol = find(contains(lColNames,'optic') & contains(lColNames,'x'),1);
-        odyCol = find(contains(lColNames,'optic') & contains(lColNames,'y'),1);
-        fxCol  = find(contains(lColNames,'fovea') & contains(lColNames,'x'),1);
-        fyCol  = find(contains(lColNames,'fovea') & contains(lColNames,'y'),1);
-
-        if ~isempty(idCol) && ~isempty(odxCol) && ~isempty(odyCol) && ~isempty(fxCol) && ~isempty(fyCol)
-            localization.available  = true;
-            localization.image_ids  = string(table2cell(locTbl(:,idCol)));
-            localization.od_x       = locTbl{:,odxCol};
-            localization.od_y       = locTbl{:,odyCol};
-            localization.fovea_x    = locTbl{:,fxCol};
-            localization.fovea_y    = locTbl{:,fyCol};
-            localization.csv_path   = locCsv;
-            fprintf('[IDRiD Loader] Localization loaded: %d entries from %s\n', height(locTbl), locCsv);
+        % ── Read OD CSV: columns "Image No" | "X- Coordinate" | "Y - Coordinate" ──
+        odIds = string({}); odX = []; odY = [];
+        if ~isfile(odCsv)
+            fprintf('[IDRiD Loader] WARNING: OD CSV not found: %s\n', odCsv);
         else
-            fprintf('[IDRiD Loader] NOTE: Localization CSV found but required columns (OD X/Y, Fovea X/Y) missing.\n');
+            odTbl    = readtable(odCsv, 'VariableNamingRule', 'preserve');
+            odIds    = string(table2cell(odTbl(:, 1)));   % col 1 = Image No
+            odX      = double(odTbl{:, 2});               % col 2 = X- Coordinate
+            odY      = double(odTbl{:, 3});               % col 3 = Y - Coordinate
+            % Remove rows where image ID is empty/NaN (trailing blank rows)
+            validOD  = ~(odIds == "" | ismissing(odIds));
+            odIds    = odIds(validOD);
+            odX      = odX(validOD);
+            odY      = odY(validOD);
+            fprintf('[IDRiD Loader] OD localization: %d entries from %s\n', numel(odIds), odCsv);
         end
+
+        % ── Read Fovea CSV: same column format ───────────────────────────────
+        foveaIds = string({}); fovX = []; fovY = [];
+        if ~isfile(foveaCsv)
+            fprintf('[IDRiD Loader] WARNING: Fovea CSV not found: %s\n', foveaCsv);
+        else
+            fovTbl   = readtable(foveaCsv, 'VariableNamingRule', 'preserve');
+            foveaIds = string(table2cell(fovTbl(:, 1)));
+            fovX     = double(fovTbl{:, 2});
+            fovY     = double(fovTbl{:, 3});
+            validFov = ~(foveaIds == "" | ismissing(foveaIds));
+            foveaIds = foveaIds(validFov);
+            fovX     = fovX(validFov);
+            fovY     = fovY(validFov);
+            fprintf('[IDRiD Loader] Fovea localization: %d entries from %s\n', numel(foveaIds), foveaCsv);
+        end
+
+        % ── Merge OD + Fovea on Image No ─────────────────────────────────────
+        if ~isempty(odIds)
+            refIds = odIds; refODx = odX; refODy = odY;
+            mergedFovX = nan(numel(refIds), 1);
+            mergedFovY = nan(numel(refIds), 1);
+            if ~isempty(foveaIds)
+                for li = 1:numel(refIds)
+                    fi = find(foveaIds == refIds(li), 1);
+                    if ~isempty(fi)
+                        mergedFovX(li) = fovX(fi);
+                        mergedFovY(li) = fovY(fi);
+                    end
+                end
+            end
+            nFovMatched = sum(~isnan(mergedFovX));
+            fprintf('[IDRiD Loader] Localization merged: %d OD, %d fovea matched.\n', numel(refIds), nFovMatched);
+        elseif ~isempty(foveaIds)
+            refIds     = foveaIds;
+            refODx     = nan(numel(foveaIds), 1);
+            refODy     = nan(numel(foveaIds), 1);
+            mergedFovX = fovX;
+            mergedFovY = fovY;
+            fprintf('[IDRiD Loader] WARNING: Only Fovea CSV available — OD coords will be NaN.\n');
+        else
+            error('[IDRiD Loader] Both OD and Fovea CSVs are empty after parsing.');
+        end
+
+        localization.available  = true;
+        localization.image_ids  = refIds;
+        localization.od_x       = refODx;
+        localization.od_y       = refODy;
+        localization.fovea_x    = mergedFovX;
+        localization.fovea_y    = mergedFovY;
+        localization.od_csv     = odCsv;
+        localization.fovea_csv  = foveaCsv;
+
     catch err
-        fprintf('[IDRiD Loader] WARNING: Could not parse localization CSV: %s\n', err.message);
+        fprintf('[IDRiD Loader] WARNING: Could not parse localization CSVs: %s\n', err.message);
+        localization.image_ids = {};
+        localization.od_x    = [];
+        localization.od_y    = [];
+        localization.fovea_x = [];
+        localization.fovea_y = [];
     end
 end
 

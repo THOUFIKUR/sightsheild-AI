@@ -60,7 +60,11 @@ end
 fprintf('[DRIVE Loader] Found %d images.\n', numel(imgFiles));
 
 if ~isfolder(maskDir)
-    error('[DRIVE Loader] DATA MISSING: vessel mask directory not found:\n  %s\nExpected 1st_manual/*.gif ground-truth masks.', maskDir);
+    % DRIVE test set does not include 1st_manual vessel masks.
+    % Report DATA MISSING — do not error, caller checks has_vessel_masks.
+    fprintf('[DRIVE Loader] NOTE: DATA MISSING — vessel mask directory not found:\n  %s\n', maskDir);
+    fprintf('  Vessel segmentation validation cannot run for this split.\n');
+    fprintf('  DRIVE official test split does not include ground-truth vessel masks.\n');
 end
 
 n = numel(imgFiles);
