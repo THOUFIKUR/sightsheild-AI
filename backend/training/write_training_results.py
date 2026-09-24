@@ -115,7 +115,37 @@ def write_results(
     Returns the path to the written file.
     Every value in the output comes directly from the passed-in computed variables.
     No values are hardcoded.
+
+    Raises AssertionError if:
+      - extra_notes contains 'TEST' (rejects test/demo runs)
+      - confusion_matrix.sum() != split_info['val_size'] (CM must match val set size)
+      - passed accuracy does not match CM-computed accuracy (within 0.001)
     """
+    # ── Guard: reject test runs ───────────────────────────────────────────────
+    if extra_notes and "TEST" in str(extra_notes).upper():
+        raise AssertionError(
+            f"write_results() refused: extra_notes contains 'TEST' ({extra_notes!r}). "
+            "Do not write test/demo outputs to TRAINING_RESULTS.md."
+        )
+
+    # ── Guard: CM sum must match val_size ────────────────────────────────────
+    cm_total = int(np.array(confusion_matrix).sum())
+    val_size = split_info.get("val_size")
+    if val_size is not None:
+        assert cm_total == int(val_size), (
+            f"confusion_matrix.sum()={cm_total} != split_info['val_size']={val_size}. "
+            "The confusion matrix must cover exactly the validation set."
+        )
+
+    # ── Guard: accuracy must match CM ────────────────────────────────────────
+    cm_arr = np.array(confusion_matrix)
+    cm_accuracy = float(np.trace(cm_arr) / cm_arr.sum()) if cm_arr.sum() > 0 else float("nan")
+    assert abs(accuracy - cm_accuracy) <= 0.001, (
+        f"Passed accuracy={accuracy:.4f} does not match CM-computed accuracy={cm_accuracy:.4f} "
+        f"(diagonal sum {int(np.trace(cm_arr))} / total {cm_total}). "
+        "Recompute accuracy directly from the same confusion matrix."
+    )
+
     ts = datetime.now(timezone.utc).isoformat()
 
     # ── Hashes for provenance ────────────────────────────────────────────────
@@ -233,7 +263,7 @@ def write_results(
 | TN | {binary_metrics['TN']} |
 
 > [!NOTE]
-> PS targets: >90% sensitivity, >85% specificity. These are real measured values, not adjusted.
+> PS targets: >90% sensitivity, >85% specificity for referable DR.
 
 ## Confusion Matrix (5-class)
 

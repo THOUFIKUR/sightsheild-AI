@@ -70,48 +70,54 @@ meta.schema         = 'DICOM-SR-style key-value (SIH26038 custom)';
 
 % ─── Attempt Medical Imaging Toolbox export ──────────────────────────────────
 toolboxAvailable = false;
-toolboxStatus    = 'MEDICAL IMAGING TOOLBOX — NOT AVAILABLE / NOT VERIFIED';
+toolboxStatus    = 'MEDICAL IMAGING TOOLBOX — NOT AVAILABLE';
 
-% Check for key Medical Imaging Toolbox functions
-toolboxFunctions = {'dicomwrite', 'dicomread', 'dicominfo', 'medicalVolume', 'dicomCollection'};
-for tf = 1:numel(toolboxFunctions)
-    if ~isempty(which(toolboxFunctions{tf}))
-        toolboxAvailable = true;
-        break;
+% Check using ver() — the correct approach. dicomwrite/dicomread are Image
+% Processing Toolbox functions, NOT Medical Imaging Toolbox indicators.
+installedToolboxes = ver();
+toolboxNames = {installedToolboxes.Name};
+if any(contains(toolboxNames, 'Medical Imaging', 'IgnoreCase', true))
+    toolboxAvailable = true;
+    toolboxStatus    = 'MEDICAL IMAGING TOOLBOX — DETECTED (ver check)';
+    fprintf('[export_structured_report] Medical Imaging Toolbox detected via ver().\n');
+else
+    fprintf('[export_structured_report] Medical Imaging Toolbox NOT found.\n');
+    fprintf('[export_structured_report] Toolboxes installed: %s\n', strjoin(toolboxNames(1:min(5,end)), ', '));
+end
     end
 end
 
 if toolboxAvailable
-    fprintf('[export_structured_report] Medical Imaging Toolbox DETECTED. Attempting DICOM-SR-style export...\n');
+    fprintf('[export_structured_report] Attempting Medical Imaging Toolbox export...\n');
     try
         srPath = fullfile(outputDir, [imgId '_structured_report.mat']);
-        % Build a DICOM-SR-style attribute set using available toolbox primitives
-        % (The exact API depends on MATLAB version; we use struct + dicomwrite for SR if supported)
-        srData = struct();
-        srData.SOPClassUID           = '1.2.840.10008.5.1.4.1.1.88.33'; % Comprehensive SR
-        srData.Modality              = 'OPT';  % Ophthalmic Tomography (closest for fundus)
-        srData.StudyDate             = datestr(now,'yyyymmdd');
-        srData.StudyTime             = datestr(now,'HHMMSS');
-        srData.PatientID             = 'ANON';
-        srData.SeriesDescription     = 'RetinaScan AI DR Screening Report';
-        % Content sequence (SR concept-value pairs)
-        srData.ContentSequence       = struct(...
-            'ConceptName',   'DR Severity Grade', ...
-            'ConceptValue',  meta.dr_severity_grade, ...
-            'ConceptLabel',  meta.dr_severity_label, ...
-            'Confidence',    meta.confidence_score, ...
-            'IsReferable',   meta.is_referable, ...
-            'GradCAMStatus', meta.gradcam_status, ...
-            'LesionMA',      meta.lesion_microaneurysms, ...
-            'LesionHE',      meta.lesion_hemorrhages, ...
-            'LesionEX',      meta.lesion_hard_exudates, ...
-            'ODCenter',      {mat2str(meta.od_center)}, ...
-            'FoveaCenter',   {mat2str(meta.fovea_center)}, ...
-            'ClinicalRule',  meta.clinical_rule_applied ...
-        );
-
-        save(srPath, 'srData', 'meta');
-        toolboxStatus = sprintf('MEDICAL IMAGING TOOLBOX — EXECUTED. Structured SR-style report saved: %s', srPath);
+        % Attempt to use medicalVolume or dicomCollection if available
+        % These are true Medical Imaging Toolbox objects (not Image Processing Toolbox)
+        if ~isempty(which('dicomCollection'))
+            % Build a minimal DICOM attribute struct for a Structured Report
+            % dicomCollection is a Medical Imaging Toolbox class
+            srAttribs.SOPClassUID        = '1.2.840.10008.5.1.4.1.1.88.33'; % Comprehensive SR
+            srAttribs.Modality           = 'OPT';
+            srAttribs.StudyDate          = datestr(now,'yyyymmdd');
+            srAttribs.StudyTime          = datestr(now,'HHMMSS');
+            srAttribs.PatientID          = 'ANON';
+            srAttribs.SeriesDescription  = 'RetinaScan AI DR Screening Report';
+            srAttribs.RetinaGrade        = meta.dr_severity_grade;
+            srAttribs.GradeLabel         = meta.dr_severity_label;
+            srAttribs.Confidence         = meta.confidence_score;
+            srAttribs.IsReferable        = meta.is_referable;
+            srAttribs.HeatmapStatus      = meta.gradcam_status;
+            srAttribs.MACount            = meta.lesion_microaneurysms;
+            srAttribs.HECount            = meta.lesion_hemorrhages;
+            srAttribs.EXCount            = meta.lesion_hard_exudates;
+            srAttribs.ClinicalRule       = meta.clinical_rule_applied;
+            save(srPath, 'srAttribs', 'meta');
+            toolboxStatus = sprintf('MEDICAL IMAGING TOOLBOX — dicomCollection available, SR attributes saved to: %s', srPath);
+        else
+            % medicalVolume exists but dicomCollection may not — still label correctly
+            save(srPath, 'meta');
+            toolboxStatus = sprintf('MEDICAL IMAGING TOOLBOX — available but dicomCollection not found; MATLAB struct saved (NOT a DICOM-SR file): %s', srPath);
+        end
         fprintf('[export_structured_report] %s\n', toolboxStatus);
     catch toolboxErr
         toolboxStatus = sprintf('MEDICAL IMAGING TOOLBOX — ERROR: %s. JSON fallback used.', toolboxErr.message);

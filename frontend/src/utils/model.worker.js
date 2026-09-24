@@ -387,10 +387,6 @@ async function generateEvidenceHeatmap(imageData, featureMapData = null, finalGr
     return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
 }
 
-// Aliases for backwards compatibility
-const generateGradCAM = generateEvidenceHeatmap;
-const generateScoreCAM = generateEvidenceHeatmap;
-
 // ─── Clinical Grade & Risk Map ────────────────────────────────────────────────
 const GRADE_MAP = [
     { grade: 0, grade_label: 'No Diabetic Retinopathy',          risk_level: 'LOW',    risk_score: 10, urgency: 'Routine annual screening at PHC',                          icdr_level: 'Level 0: No apparent retinopathy' },
@@ -562,7 +558,7 @@ self.onmessage = async (e) => {
         return;
     }
 
-    // ── INFERENCE path: full grading + lesion + real Score-CAM heatmap ───────
+    // ── INFERENCE path: full grading + lesion + heuristic saliency heatmap ────
     try {
         self.postMessage({ type: 'STATUS', message: 'Initializing AI Models...' });
 
@@ -625,11 +621,15 @@ self.onmessage = async (e) => {
         const finalGrade  = arbitration.final_grade;
         const finalInfo   = GRADE_MAP[finalGrade] || GRADE_MAP[2];
 
-        // ── Phase 4: Real Pathology-Focused Grad-CAM Heatmap ─────────────────
-        self.postMessage({ type: 'STATUS', message: 'Generating Grad-CAM Heatmap...' });
+        // ── Phase 4: Heuristic Saliency Heatmap ─────────────────────────────────
+        // NOTE: This is CLAHE + background-subtraction + YOLO Gaussian foci overlay.
+        // It does NOT compute gradients and is NOT Grad-CAM.
+        // heatmap_method is set to 'heuristic_saliency' accordingly.
+        // Real Grad-CAM (from feature_map × classifier weights) will replace this in P4.1.
+        self.postMessage({ type: 'STATUS', message: 'Generating Saliency Heatmap (heuristic)...' });
         let heatmapBlob;
         try {
-            heatmapBlob = await generateGradCAM(imageData, featureMapData, finalGrade, detections);
+            heatmapBlob = await generateEvidenceHeatmap(imageData, featureMapData, finalGrade, detections);
         } catch (camErr) {
             console.warn('[Worker] Grad-CAM failed:', camErr.message, '— using direct image');
             const canvasFB = new OffscreenCanvas(origW, origH);
@@ -659,7 +659,9 @@ self.onmessage = async (e) => {
                 image_shape:    [origH, origW],
             },
             timestamp: new Date().toISOString(),
-            _note: 'RetinaScan AI — FP32 EfficientNet-B3+CBAM + Mathematical Grad-CAM + Khurana Arbitration (offline)',
+            nn_grade: nnGrade,
+            heatmap_method: 'heuristic_saliency',
+            _note: 'RetinaScan AI — FP32 EfficientNet-B3+CBAM + ETDRS Arbitration (offline). Heatmap is heuristic saliency (CLAHE+BG-sub+YOLO foci), NOT Grad-CAM.',
         };
 
         self.postMessage({ type: 'RESULT', result, heatmapBlob });

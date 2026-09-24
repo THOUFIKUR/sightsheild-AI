@@ -6,7 +6,7 @@ the .onnx files in the repo are tiny LFS pointer text files (~130 bytes) instead
 of the real model binaries. This script detects that case and downloads the real
 model binaries from the GitHub CDN before the FastAPI server starts.
 
-Updated 2026-09: retina_model.onnx is now ~1 MB (FP32, dynamo-exported, no quantization).
+Updated 2026-09: retina_model.onnx is ~42.7 MB (FP32, EfficientNet-B3+CBAM, all weights embedded).
 MIN_VALID_SIZES has per-model thresholds so each file is validated independently.
 """
 
@@ -18,10 +18,10 @@ from pathlib import Path
 MODEL_DIR = Path(__file__).parent / "models"
 
 MODELS = {
-    # retina_model.onnx — FP32 EfficientNet-B3+CBAM, ~1 MB (all weights embedded, dynamo export)
+    # retina_model.onnx — FP32 EfficientNet-B3+CBAM, ~42.7 MB (all weights embedded)
     "retina_model.onnx": {
         "url": "https://media.githubusercontent.com/media/THOUFIKUR/sih2026/main/backend/models/retina_model.onnx",
-        "min_bytes": 500_000,   # Real model is ~1 MB; LFS pointer is ~130 bytes
+        "min_bytes": 40_000_000,  # Real model is ~42.7 MB; LFS pointer is ~130 bytes
     },
     # yolo_lesions.onnx — INT8 YOLO, ~11.5 MB
     "yolo_lesions.onnx": {

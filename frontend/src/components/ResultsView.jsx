@@ -93,6 +93,10 @@ function EyeResultCard({ label, data }) {
     const hasCam = !!(data?.raw_heatmap_url || data?.heatmap_url);
     const yoloData = data?.yolo || data?.yoloDetections;
     const hasYolo = !!yoloData;
+    // Show "Grad-CAM" only when the backend confirms it computed a real gradient CAM.
+    // Otherwise label it "Saliency (heuristic)" — CLAHE+BG-sub+YOLO foci method.
+    const heatmapMethod = data?.heatmap_method || 'heuristic_saliency';
+    const camTabLabel = heatmapMethod === 'grad_cam' ? 'Grad-CAM' : 'Saliency (heuristic)';
 
     return (
         <div className="bg-white rounded-2xl border border-rs-border p-5 shadow-rs-sm space-y-4">
@@ -144,7 +148,7 @@ function EyeResultCard({ label, data }) {
                             onClick={() => setViewMode('cam')}
                             className={`px-3 py-1 rounded font-medium transition-all ${viewMode === 'cam' ? 'bg-rs-primary text-white shadow-rs-xs' : 'text-rs-muted hover:text-rs-deep-navy'}`}
                         >
-                            Grad-CAM
+                            {camTabLabel}
                         </button>
                     )}
                     {hasCam && (
